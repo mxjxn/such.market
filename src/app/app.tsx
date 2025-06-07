@@ -1,15 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { APP_NAME } from "~/lib/constants";
 
-// note: dynamic import is required for components that use the Frame SDK
-const Demo = dynamic(() => import("~/components/Demo"), {
+// Import Main component with proper typing
+const Main = dynamic(() => import("~/components/Main").then(mod => ({ default: mod.default })), {
   ssr: false,
 });
 
-export default function App(
-  { title }: { title?: string } = { title: APP_NAME }
-) {
-  return <Demo title={title} />;
+export default function App() {
+  return (
+    <div className="min-h-screen bg-black">
+      <Main />
+    </div>
+  );
 }

@@ -4,6 +4,7 @@ import { getSession } from "~/auth"
 import "~/app/globals.css";
 import { Providers } from "~/app/providers";
 import { APP_NAME, APP_DESCRIPTION } from "~/lib/constants";
+import { HomeButton } from "~/components/HomeButton";
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -20,7 +21,10 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Providers session={session}>{children}</Providers>
+        <Providers session={session}>
+          <HomeButton />
+          {children}
+        </Providers>
       </body>
     </html>
   );

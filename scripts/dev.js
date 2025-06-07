@@ -67,15 +67,15 @@ async function killProcessOnPort(port) {
 }
 
 async function startDev() {
-  // Check if port 3000 is already in use
-  const isPortInUse = await checkPort(3000);
+  // Check if port 3001 is already in use
+  const isPortInUse = await checkPort(3001);
   if (isPortInUse) {
-    console.error('Port 3000 is already in use. To find and kill the process using this port:\n\n' +
+    console.error('Port 3001 is already in use. To find and kill the process using this port:\n\n' +
       (process.platform === 'win32' 
-        ? '1. Run: netstat -ano | findstr :3000\n' +
+        ? '1. Run: netstat -ano | findstr :3001\n' +
           '2. Note the PID (Process ID) from the output\n' +
           '3. Run: taskkill /PID <PID> /F\n'
-        : `On macOS/Linux, run:\nnpm run cleanup\n`) +
+        : `On macOS/Linux, run:\nlsof -ti :3001 | xargs kill -9\n`) +
       '\nThen try running this command again.');
     process.exit(1);
   }
@@ -85,7 +85,7 @@ async function startDev() {
 
   if (useTunnel) {
     // Start localtunnel and get URL
-    tunnel = await localtunnel({ port: 3000 });
+    tunnel = await localtunnel({ port: 3001 });
     let ip;
     try {
       ip = await fetch('https://ipv4.icanhazip.com').then(res => res.text()).then(ip => ip.trim());
@@ -117,7 +117,7 @@ async function startDev() {
    5. Click "Preview" (note that it may take ~10 seconds to load)
 `);
   } else {
-    frameUrl = 'http://localhost:3000';
+    frameUrl = 'http://localhost:3001';
     console.log(`
 💻 To test your mini app:
    1. Open the Warpcast Mini App Developer Tools: https://warpcast.com/~/developers
@@ -174,8 +174,8 @@ async function startDev() {
         }
       }
 
-      // Force kill any remaining processes on port 3000
-      await killProcessOnPort(3000);
+      // Force kill any remaining processes on port 3001
+      await killProcessOnPort(3001);
     } catch (error) {
       console.error('Error during cleanup:', error);
     } finally {
