@@ -22,7 +22,7 @@
     "add-collection": "tsx scripts/inspect-redis.ts add",
     "add-known-collections": "tsx scripts/inspect-redis.ts add-known",
     "clear-collections": "tsx scripts/inspect-redis.ts clear",
-    "db:migrate": "tsx db/seed/seed.ts",
+    "db:migrate": "SUPABASE_ENV=production pnpx supabase@latest db push",
     "db:seed": "tsx db/seed/seed.ts"
   },
   "dependencies": {
@@ -59,6 +59,7 @@
     "@types/react-dom": "^18",
     "crypto": "^1.0.1",
     "dotenv": "^16.5.0",
+    "dotenv-cli": "^7.4.4",
     "eslint": "^8",
     "eslint-config-next": "15.0.3",
     "localtunnel": "^2.0.2",

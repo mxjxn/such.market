@@ -1,19 +1,59 @@
 import { NextResponse } from 'next/server';
-import { Alchemy, Network, Nft } from 'alchemy-sdk';
-import { Redis } from '@upstash/redis';
+import { Alchemy, Network, Nft, GetNftsForContractOptions, NftContractForNft, NftTokenType, OpenSeaSafelistRequestStatus } from 'alchemy-sdk';
 import { createPublicClient, http, parseAbiItem } from 'viem';
 import { base } from 'viem/chains';
+import { getCollectionByAddress, getCollectionNFTs, upsertCollectionNFTs, updateCollectionRefreshTime } from '~/lib/db/collections';
+import { getSupabaseClient } from '~/lib/supabase';
+import { convertToOpenSeaMetadata, validateOpenSeaMetadata } from '~/lib/opensea-metadata';
+import { getCachedCollectionNFTs, setCachedCollectionNFTs, invalidateCollectionCache } from '~/lib/db/cache';
+import type { Database, Json } from '@/db/types/database.types';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables from .env.local
+if (process.env.NODE_ENV !== 'production') {
+  const envPath = path.resolve(process.cwd(), '.env.local');
+  console.log('Loading env from:', envPath);
+  dotenv.config({ path: envPath });
+}
+
+// Log environment variables (without sensitive values)
+console.log('Environment check:', {
+  hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+  hasSupabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  hasAlchemyKey: !!process.env.ALCHEMY_API_KEY,
+  nodeEnv: process.env.NODE_ENV,
+});
+
+// Use the same NFT type as collections.ts
+type NFT = Database['public']['Tables']['nfts']['Row'];
+
+// Define NFTMetadata type based on our database schema
+interface NFTMetadata {
+  tokenId: string;
+  title?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  thumbnailUrl?: string | null;
+  metadata?: Json;
+  attributes?: Json;
+  media?: Json;
+  collection_id?: string;
+}
+
+// Define the response type to match the collections implementation
+type NFTResponse = {
+  nfts: NFT[];
+  total: number;
+};
+
+// Use getSupabaseClient() instead of supabase
+const supabase = getSupabaseClient();
 
 // Initialize Alchemy SDK
 const alchemy = new Alchemy({
-  apiKey: process.env.NEXT_PUBLIC_ALCHEMY_API_KEY,
+  apiKey: process.env.ALCHEMY_API_KEY,
   network: Network.BASE_MAINNET,
-});
-
-// Initialize Redis client
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL!,
-  token: process.env.KV_REST_API_TOKEN!,
 });
 
 // Initialize viem client for on-chain calls
@@ -21,19 +61,6 @@ const publicClient = createPublicClient({
   chain: base,
   transport: http(),
 });
-
-// Cache TTLs
-const METADATA_CACHE_TTL = 86400; // 24 hours
-const COLLECTION_INDEX_TTL = 3600; // 1 hour
-const PAGE_CACHE_TTL = 900; // 15 minutes
-
-// Cache key patterns
-const METADATA_KEY = (contractAddress: string, tokenId: string) => 
-  `nft:metadata:${contractAddress}:${tokenId}`;
-const COLLECTION_INDEX_KEY = (contractAddress: string) => 
-  `nft:collection:${contractAddress}:index`;
-const PAGE_KEY = (contractAddress: string, pageNumber: number) => 
-  `nft:collection:${contractAddress}:page:${pageNumber}`;
 
 // Add ERC721 and ERC1155 ABI items for metadata fetching
 const ERC721_METADATA_ABI = [
@@ -47,103 +74,6 @@ const ERC1155_METADATA_ABI = [
   parseAbiItem('function name() view returns (string)'),
   parseAbiItem('function symbol() view returns (string)'),
 ];
-
-// Update NFTMetadata interface to match Redis data structure
-interface NFTMetadata {
-  tokenId: string;
-  title?: string;
-  description?: string | null;
-  imageUrl?: string | null;
-  thumbnailUrl?: string | null;
-  media?: Array<{
-    gateway: string | null;
-    thumbnail: string | null;
-    raw: string | null;
-    format: string;
-    bytes: number;
-  }>;
-  metadata?: {
-    name: string;
-    description: string;
-    image: string | null;
-    attributes: Array<{
-      trait_type: string;
-      value: string;
-    }>;
-  } | null;
-  attributes?: Array<{
-    trait_type: string;
-    value: string;
-  }>;
-}
-
-// Add interface for Redis data format
-interface RedisNFTMetadata {
-  tokenId: string;
-  title?: string;
-  description?: string | null;
-  imageUrl?: string | null;
-  thumbnailUrl?: string | null;
-  attributes?: Array<{
-    trait_type: string;
-    value: string;
-  }>;
-  metadata?: {
-    name: string;
-    description: string;
-    image: string | null;
-    attributes: Array<{
-      trait_type: string;
-      value: string;
-    }>;
-  } | null;
-  media?: Array<{
-    gateway: string | null;
-    thumbnail: string | null;
-    raw: string | null;
-    format: string;
-    bytes: number;
-  }>;
-}
-
-// Update normalizeRedisMetadata to use the new type
-function normalizeRedisMetadata(data: RedisNFTMetadata | null): NFTMetadata | null {
-  if (!data) return null;
-
-  // If it's already in the new format (from Alchemy/on-chain), return as is
-  if (data.metadata || data.media) {
-    return data as NFTMetadata;
-  }
-
-  // Convert old Redis format to new format
-  const normalized: NFTMetadata = {
-    tokenId: data.tokenId,
-    title: data.title || `NFT #${data.tokenId}`,
-    description: data.description || null,
-    imageUrl: data.imageUrl || null,
-    thumbnailUrl: data.thumbnailUrl || null,
-    metadata: {
-      name: data.title || `NFT #${data.tokenId}`,
-      description: data.description || '',
-      image: data.imageUrl || null,
-      attributes: data.attributes || [],
-    },
-    attributes: data.attributes || [],
-  };
-
-  // Add media array if we have image URLs
-  if (data.imageUrl) {
-    normalized.media = [{
-      gateway: data.imageUrl,
-      thumbnail: data.thumbnailUrl || data.imageUrl,
-      raw: data.imageUrl,
-      format: 'image',
-      bytes: 0,
-    }];
-  }
-
-  return normalized;
-}
 
 // Helper function to convert IPFS URLs to HTTPS URLs
 function convertIpfsToHttps(url: string | null): string | null {
@@ -159,104 +89,8 @@ function convertIpfsToHttps(url: string | null): string | null {
   return url;
 }
 
-// Add proper type for Alchemy NFT metadata
-interface AlchemyNFTMetadata {
-  name?: string;
-  description?: string;
-  image?: string;
-  attributes?: Array<{
-    trait_type: string;
-    value: string;
-  }>;
-}
-
-// Update processAndStoreNFTMetadata with better logging and proper types
-async function processAndStoreNFTMetadata(nft: Nft, contractAddress: string): Promise<NFTMetadata | null> {
-  console.log('🔍 Processing NFT metadata:', {
-    contractAddress,
-    tokenId: nft.tokenId,
-    rawMetadata: nft.raw?.metadata,
-    media: (nft as any).media, // Log media for debugging
-  });
-
-  const rawMetadata = nft.raw?.metadata as AlchemyNFTMetadata | undefined;
-  
-  // Log all possible image sources
-  const possibleImageUrls = {
-    rawMetadataImage: rawMetadata?.image,
-    mediaGateway: (nft as any).media?.[0]?.gateway,
-    mediaThumbnail: (nft as any).media?.[0]?.thumbnail,
-    rawUrl: (nft as any).media?.[0]?.raw,
-  };
-  console.log('🔍 Possible image URLs:', possibleImageUrls);
-
-  const imageUrl = rawMetadata?.image 
-    ? convertIpfsToHttps(rawMetadata.image)
-    : (nft as any).media?.[0]?.gateway 
-      ? convertIpfsToHttps((nft as any).media[0].gateway)
-      : (nft as any).media?.[0]?.thumbnail 
-        ? convertIpfsToHttps((nft as any).media[0].thumbnail)
-        : null;
-
-  console.log('🔍 Final image URL:', {
-    contractAddress,
-    tokenId: nft.tokenId,
-    imageUrl,
-    wasConverted: imageUrl !== rawMetadata?.image && imageUrl !== (nft as any).media?.[0]?.gateway,
-  });
-
-  if (!imageUrl) {
-    console.log('⚠️ No image URL found for NFT:', {
-      contractAddress,
-      tokenId: nft.tokenId,
-      rawMetadata: rawMetadata,
-      media: (nft as any).media,
-    });
-    return null;
-  }
-
-  const metadata: NFTMetadata = {
-    tokenId: nft.tokenId,
-    title: (nft as any).title || rawMetadata?.name || `NFT #${nft.tokenId}`,
-    description: (nft as any).description || rawMetadata?.description || null,
-    media: ((nft as any).media || []).map((m: any) => ({
-      gateway: convertIpfsToHttps(m.gateway),
-      thumbnail: convertIpfsToHttps(m.thumbnail),
-      raw: convertIpfsToHttps(m.raw),
-      format: m.format || 'image',
-      bytes: m.bytes || 0,
-    })),
-    metadata: {
-      name: rawMetadata?.name || (nft as any).title || `NFT #${nft.tokenId}`,
-      description: rawMetadata?.description || (nft as any).description || '',
-      image: imageUrl,
-      attributes: rawMetadata?.attributes || [],
-    },
-    attributes: rawMetadata?.attributes || [],
-  };
-
-  // Log the final metadata before storing
-  console.log('📝 Storing NFT metadata:', {
-    contractAddress,
-    tokenId: nft.tokenId,
-    hasImageUrl: !!metadata.imageUrl,
-    hasMetadata: !!metadata.metadata,
-    hasAttributes: !!metadata.attributes?.length,
-    imageUrl: metadata.metadata?.image,
-  });
-
-  // Store metadata in Redis
-  await redis.set(
-    METADATA_KEY(contractAddress, nft.tokenId),
-    metadata,
-    { ex: METADATA_CACHE_TTL }
-  );
-
-  return metadata;
-}
-
 // Helper function to fetch metadata from chain
-async function fetchOnChainMetadata(contractAddress: string, tokenId: string): Promise<NFTMetadata | null> {
+async function fetchOnChainMetadata(contractAddress: string, tokenId: string): Promise<Partial<Nft> | null> {
   try {
     // Try ERC721 first
     try {
@@ -268,7 +102,6 @@ async function fetchOnChainMetadata(contractAddress: string, tokenId: string): P
       });
 
       if (tokenURI) {
-        // Handle IPFS and HTTP URIs
         const metadataUrl = convertIpfsToHttps(tokenURI);
         if (!metadataUrl) return null;
 
@@ -277,26 +110,42 @@ async function fetchOnChainMetadata(contractAddress: string, tokenId: string): P
 
         const rawMetadata = await response.json();
         const imageUrl = convertIpfsToHttps(rawMetadata.image);
-
-        if (!imageUrl) return null;
-
-        return {
-          tokenId,
-          title: rawMetadata.name || `NFT #${tokenId}`,
-          description: rawMetadata.description || null,
-          media: [{
-            gateway: imageUrl,
-            thumbnail: imageUrl,
-            raw: metadataUrl,
-            format: 'json',
-            bytes: 0,
-          }],
-          metadata: {
-            name: rawMetadata.name || `NFT #${tokenId}`,
-            description: rawMetadata.description || '',
-            image: imageUrl,
-            attributes: rawMetadata.attributes || [],
+        
+        // Convert to OpenSea metadata format
+        const openSeaMetadata = convertToOpenSeaMetadata(rawMetadata);
+        const validation = validateOpenSeaMetadata(openSeaMetadata);
+        
+        if (!validation.isValid) {
+          console.warn('⚠️ Invalid OpenSea metadata:', {
+            contractAddress,
+            tokenId,
+            errors: validation.errors,
+          });
+          return null; // Return null if metadata is invalid
+        }
+        
+        const contract: NftContractForNft = {
+          address: contractAddress,
+          tokenType: NftTokenType.ERC721,
+          spamClassifications: [],
+          openSeaMetadata: {
+            collectionName: openSeaMetadata.collection?.name || '',
+            collectionSlug: openSeaMetadata.collection?.family || '',
+            safelistRequestStatus: OpenSeaSafelistRequestStatus.NOT_REQUESTED,
+            description: openSeaMetadata.description,
+            externalUrl: openSeaMetadata.external_url,
+            imageUrl: openSeaMetadata.image,
+            lastIngestedAt: new Date().toISOString(),
           },
+        };
+        
+        return {
+          contract,
+          tokenId,
+          tokenType: NftTokenType.ERC721,
+          raw: { metadata: rawMetadata },
+          image: { originalUrl: imageUrl || undefined },
+          timeLastUpdated: new Date().toISOString(),
         };
       }
     } catch (error) {
@@ -315,7 +164,6 @@ async function fetchOnChainMetadata(contractAddress: string, tokenId: string): P
         });
 
         if (uri) {
-          // Handle IPFS and HTTP URIs
           const metadataUrl = convertIpfsToHttps(uri.replace('{id}', tokenId));
           if (!metadataUrl) return null;
 
@@ -324,26 +172,42 @@ async function fetchOnChainMetadata(contractAddress: string, tokenId: string): P
 
           const rawMetadata = await response.json();
           const imageUrl = convertIpfsToHttps(rawMetadata.image);
-
-          if (!imageUrl) return null;
-
-          return {
-            tokenId,
-            title: rawMetadata.name || `NFT #${tokenId}`,
-            description: rawMetadata.description || null,
-            media: [{
-              gateway: imageUrl,
-              thumbnail: imageUrl,
-              raw: metadataUrl,
-              format: 'json',
-              bytes: 0,
-            }],
-            metadata: {
-              name: rawMetadata.name || `NFT #${tokenId}`,
-              description: rawMetadata.description || '',
-              image: imageUrl,
-              attributes: rawMetadata.attributes || [],
+          
+          // Convert to OpenSea metadata format
+          const openSeaMetadata = convertToOpenSeaMetadata(rawMetadata);
+          const validation = validateOpenSeaMetadata(openSeaMetadata);
+          
+          if (!validation.isValid) {
+            console.warn('⚠️ Invalid OpenSea metadata:', {
+              contractAddress,
+              tokenId,
+              errors: validation.errors,
+            });
+            return null; // Return null if metadata is invalid
+          }
+          
+          const contract: NftContractForNft = {
+            address: contractAddress,
+            tokenType: NftTokenType.ERC1155,
+            spamClassifications: [],
+            openSeaMetadata: {
+              collectionName: openSeaMetadata.collection?.name || '',
+              collectionSlug: openSeaMetadata.collection?.family || '',
+              safelistRequestStatus: OpenSeaSafelistRequestStatus.NOT_REQUESTED,
+              description: openSeaMetadata.description,
+              externalUrl: openSeaMetadata.external_url,
+              imageUrl: openSeaMetadata.image,
+              lastIngestedAt: new Date().toISOString(),
             },
+          };
+          
+          return {
+            contract,
+            tokenId,
+            tokenType: NftTokenType.ERC1155,
+            raw: { metadata: rawMetadata },
+            image: { originalUrl: imageUrl || undefined },
+            timeLastUpdated: new Date().toISOString(),
           };
         }
       } catch (e) {
@@ -364,215 +228,272 @@ async function fetchOnChainMetadata(contractAddress: string, tokenId: string): P
   return null;
 }
 
-// Update getNFTMetadata with more detailed logging
-async function getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTMetadata | null> {
-  // 1. Try Redis cache first
-  const cached = await redis.get<RedisNFTMetadata>(METADATA_KEY(contractAddress, tokenId));
-  if (cached) {
-    console.log('📦 Found NFT metadata in Redis:', {
-      contractAddress,
-      tokenId,
-      hasImageUrl: !!cached.imageUrl,
-      hasMetadata: !!cached.metadata,
-      hasAttributes: !!cached.attributes,
-      imageUrl: cached.metadata?.image || cached.imageUrl,
-      rawData: cached, // Log the full cached data
-    });
-    const normalized = normalizeRedisMetadata(cached);
-    if (normalized) {
-      return normalized;
-    }
-  }
+// Helper function to fetch and store NFT metadata
+async function fetchAndStoreNFTMetadata(
+  contractAddress: string,
+  tokenIds: string[],
+  collectionId: string
+): Promise<NFTMetadata[]> {
+  console.log('🔄 Fetching metadata for tokens:', {
+    contractAddress,
+    tokenIds,
+  });
 
-  // 2. Try Alchemy if not in cache
+  const nfts: Partial<Nft>[] = [];
+  
+  // Try Alchemy first
   try {
-    console.log('🔄 Fetching NFT metadata from Alchemy:', {
-      contractAddress,
-      tokenId,
-    });
-    const nft = await alchemy.nft.getNftMetadata(contractAddress, tokenId);
-    console.log('📥 Raw Alchemy response:', {
-      contractAddress,
-      tokenId,
-      hasRaw: !!nft.raw,
-      rawMetadata: nft.raw?.metadata,
-      media: (nft as any).media,
-    });
-    
-    const metadata = await processAndStoreNFTMetadata(nft, contractAddress);
-    if (metadata) {
-      return metadata;
-    }
+    const options: GetNftsForContractOptions = {
+      pageSize: 100,
+    };
+    const response = await alchemy.nft.getNftsForContract(contractAddress, options);
+    nfts.push(...response.nfts);
   } catch (error) {
-    console.log('⚠️ Alchemy metadata fetch failed:', {
+    console.log('⚠️ Alchemy fetch failed, trying on-chain:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       contractAddress,
-      tokenId,
-      stack: error instanceof Error ? error.stack : undefined,
     });
   }
 
-  // 3. Try on-chain as last resort
-  console.log('🔄 Fetching NFT metadata from chain:', {
-    contractAddress,
-    tokenId,
-  });
-  const onChainMetadata = await fetchOnChainMetadata(contractAddress, tokenId);
-  if (onChainMetadata) {
-    // Store successful on-chain metadata in Redis
-    await redis.set(
-      METADATA_KEY(contractAddress, tokenId),
-      onChainMetadata,
-      { ex: METADATA_CACHE_TTL }
-    );
-    return onChainMetadata;
+  // For any missing NFTs, try on-chain
+  const fetchedTokenIds = new Set(nfts.map(nft => nft.tokenId));
+  const missingTokenIds = tokenIds.filter(id => !fetchedTokenIds.has(id));
+
+  if (missingTokenIds.length > 0) {
+    console.log('🔄 Fetching missing NFTs from chain:', {
+      contractAddress,
+      missingTokenIds,
+    });
+
+    for (const tokenId of missingTokenIds) {
+      const nft = await fetchOnChainMetadata(contractAddress, tokenId);
+      if (nft) {
+        nfts.push(nft);
+      }
+    }
   }
 
-  console.log('❌ Failed to fetch NFT metadata from all sources:', {
-    contractAddress,
-    tokenId,
-  });
-  return null;
-}
+  // Process and store NFTs
+  const processedNfts: NFTMetadata[] = [];
+  if (nfts.length > 0) {
+    const nftsToStore = nfts.map(nft => ({
+      tokenId: nft.tokenId!,
+      title: nft.raw?.metadata?.name || `NFT #${nft.tokenId}`,
+      description: nft.raw?.metadata?.description || null,
+      imageUrl: nft.image?.originalUrl || nft.raw?.metadata?.image || null,
+      thumbnailUrl: nft.image?.thumbnailUrl || null,
+      metadata: nft.raw?.metadata || undefined,
+      attributes: nft.raw?.metadata?.attributes || null,
+      media: nft.raw?.metadata?.image ? [nft.raw?.metadata] : null,
+      collection_id: collectionId,
+    }));
 
-// Helper function to update collection index
-async function updateCollectionIndex(contractAddress: string, tokenIds: string[]): Promise<void> {
-  await redis.set(
-    COLLECTION_INDEX_KEY(contractAddress),
-    tokenIds,
-    { ex: COLLECTION_INDEX_TTL }
-  );
+    await upsertCollectionNFTs(collectionId, nftsToStore);
+    processedNfts.push(...nftsToStore);
+  }
+
+  return processedNfts;
 }
 
 export async function GET(
   request: Request,
-  context: { params: Promise<{ contractAddress: string }> }
+  context: { params: { contractAddress: string } }
 ) {
   try {
-    const { searchParams } = new URL(request.url);
-    const pageKey = searchParams.get('pageKey') || undefined;
-    const forceRefresh = searchParams.get('refresh') === 'true'; // Add force refresh parameter
-    const pageSize = 20;
-    const { contractAddress } = await context.params;
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '0');
+    const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
+    const forceRefresh = url.searchParams.get('forceRefresh') === 'true';
 
-    // Get or fetch collection index
-    let tokenIds = await redis.get<string[]>(COLLECTION_INDEX_KEY(contractAddress));
-    const needsIndexUpdate = !tokenIds;
-
-    if (!tokenIds) {
-      console.log('🔄 Fetching collection index from Alchemy:', { contractAddress });
-      const response = await alchemy.nft.getNftsForContract(contractAddress, {
-        pageSize: 100, // Get more tokens to build initial index
-      });
-      tokenIds = response.nfts.map(nft => nft.tokenId);
-      await updateCollectionIndex(contractAddress, tokenIds);
-    }
-
-    // Calculate page number and get cached page if available
-    const pageNumber = pageKey ? parseInt(pageKey) : 0;
-    const pageStart = pageNumber * pageSize;
-    const pageEnd = pageStart + pageSize;
-    const pageTokenIds = tokenIds.slice(pageStart, pageEnd);
-
-    // Try to get cached page data
-    const cachedPage = forceRefresh ? null : await redis.get<{ tokenIds: string[], metadata: NFTMetadata[] }>(
-      PAGE_KEY(contractAddress, pageNumber)
-    );
-
-    if (cachedPage?.metadata?.length === pageTokenIds.length) {
-      console.log('📦 Serving page from cache:', {
-        contractAddress,
-        pageNumber,
-        nftCount: cachedPage.metadata.length,
-        firstNFT: cachedPage.metadata[0] ? {
-          tokenId: cachedPage.metadata[0].tokenId,
-          hasImageUrl: !!cachedPage.metadata[0].metadata?.image,
-          imageUrl: cachedPage.metadata[0].metadata?.image,
-          hasMetadata: !!cachedPage.metadata[0].metadata,
-          hasAttributes: !!cachedPage.metadata[0].attributes?.length,
-        } : null,
-        lastNFT: cachedPage.metadata[cachedPage.metadata.length - 1] ? {
-          tokenId: cachedPage.metadata[cachedPage.metadata.length - 1].tokenId,
-          hasImageUrl: !!cachedPage.metadata[cachedPage.metadata.length - 1].metadata?.image,
-          imageUrl: cachedPage.metadata[cachedPage.metadata.length - 1].metadata?.image,
-          hasMetadata: !!cachedPage.metadata[cachedPage.metadata.length - 1].metadata,
-          hasAttributes: !!cachedPage.metadata[cachedPage.metadata.length - 1].attributes?.length,
-        } : null,
-      });
-
-      // If we have cached data but it's missing images, force a refresh
-      const hasMissingImages = cachedPage.metadata.some(nft => !nft.metadata?.image);
-      if (hasMissingImages) {
-        console.log('⚠️ Cached data has missing images, forcing refresh');
-        // Delete the cached page to force a refresh
-        await redis.del(PAGE_KEY(contractAddress, pageNumber));
-      } else {
-        return NextResponse.json({
-          nfts: cachedPage.metadata,
-          pageKey: pageNumber + 1 < Math.ceil(tokenIds.length / pageSize) ? (pageNumber + 1).toString() : undefined,
-        });
-      }
-    }
-
-    // Fetch metadata for page tokens
-    console.log('🔄 Fetching metadata for page:', {
-      contractAddress,
-      pageNumber,
-      tokenIds: pageTokenIds,
+    console.log('📋 Request parameters:', {
+      page,
+      pageSize,
       forceRefresh,
+      rawPage: url.searchParams.get('page'),
+      rawPageSize: url.searchParams.get('pageSize'),
+      rawForceRefresh: url.searchParams.get('forceRefresh'),
     });
 
-    const metadataPromises = pageTokenIds.map(tokenId => 
-      getNFTMetadata(contractAddress, tokenId)
-    );
-    const metadataResults = await Promise.all(metadataPromises);
-    const validMetadata = metadataResults.filter((m): m is NFTMetadata => m !== null);
-
-    // Log the results of our fetch
-    console.log('📊 Page fetch results:', {
-      contractAddress,
-      pageNumber,
-      expectedCount: pageTokenIds.length,
-      actualCount: validMetadata.length,
-      hasMissingImages: validMetadata.some(nft => !nft.metadata?.image),
-      firstNFT: validMetadata[0] ? {
-        tokenId: validMetadata[0].tokenId,
-        hasImageUrl: !!validMetadata[0].metadata?.image,
-        imageUrl: validMetadata[0].metadata?.image,
-      } : null,
-    });
-
-    // Cache the page
-    if (validMetadata.length > 0) {
-      await redis.set(
-        PAGE_KEY(contractAddress, pageNumber),
-        { tokenIds: pageTokenIds, metadata: validMetadata },
-        { ex: PAGE_CACHE_TTL }
+    // Validate contract address
+    const { contractAddress } = await context.params;
+    if (!contractAddress) {
+      console.error('❌ Missing contract address');
+      return NextResponse.json(
+        { error: 'Contract address is required' },
+        { status: 400 }
       );
     }
 
-    // If we got fewer NFTs than expected, update the collection index
-    if (needsIndexUpdate || validMetadata.length < pageTokenIds.length) {
-      console.log('🔄 Updating collection index:', {
-        contractAddress,
-        expected: pageTokenIds.length,
-        received: validMetadata.length,
-      });
-      const response = await alchemy.nft.getNftsForContract(contractAddress, {
-        pageSize: 100,
-      });
-      const newTokenIds = response.nfts.map(nft => nft.tokenId);
-      await updateCollectionIndex(contractAddress, newTokenIds);
+    // Get collection from database
+    console.log('🔍 Fetching collection:', contractAddress);
+    const collection = await getCollectionByAddress(contractAddress);
+    console.log('📦 Collection result:', {
+      found: !!collection,
+      id: collection?.id,
+      name: collection?.name,
+      totalSupply: collection?.total_supply,
+      lastRefresh: collection?.last_refresh_at,
+    });
+
+    if (!collection) {
+      console.error('❌ Collection not found:', contractAddress);
+      return NextResponse.json(
+        { error: 'Collection not found' },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({
-      nfts: validMetadata,
-      pageKey: pageNumber + 1 < Math.ceil(tokenIds.length / pageSize) ? (pageNumber + 1).toString() : undefined,
+    // Check if collection needs refresh
+    const needsRefresh = forceRefresh || !collection.last_refresh_at;
+    console.log('🔄 Refresh check:', {
+      needsRefresh,
+      forceRefresh,
+      lastRefresh: collection.last_refresh_at,
+      cooldownUntil: collection.refresh_cooldown_until,
     });
+
+    // Get NFTs from database
+    console.log('📚 Fetching NFTs from database:', {
+      contractAddress,
+      page,
+      pageSize,
+    });
+    const result = await getCollectionNFTs(contractAddress, page, pageSize);
+    console.log('💾 Database NFT result:', {
+      nftCount: result.nfts.length,
+      total: result.total,
+      firstNFT: result.nfts[0] ? {
+        id: result.nfts[0].id,
+        tokenId: result.nfts[0].token_id,
+        title: result.nfts[0].title,
+      } : null,
+      lastNFT: result.nfts[result.nfts.length - 1] ? {
+        id: result.nfts[result.nfts.length - 1].id,
+        tokenId: result.nfts[result.nfts.length - 1].token_id,
+        title: result.nfts[result.nfts.length - 1].title,
+      } : null,
+    });
+
+    // If we have enough NFTs in the database and not forcing refresh, return them
+    if (result.nfts.length === pageSize && !forceRefresh) {
+      console.log('✅ Using database NFTs:', {
+        contractAddress,
+        page,
+        pageSize,
+        count: result.nfts.length,
+        hasMore: page * pageSize + result.nfts.length < (collection.total_supply || result.total),
+      });
+      
+      // Cache the results
+      console.log('💾 Caching database NFTs');
+      await setCachedCollectionNFTs(contractAddress, page, pageSize, result);
+      
+      return NextResponse.json({
+        nfts: result.nfts,
+        total: collection.total_supply || result.total,
+        hasMore: page * pageSize + result.nfts.length < (collection.total_supply || result.total),
+      });
+    }
+
+    // If we need to fetch more NFTs
+    console.log('🔄 Need to fetch more NFTs:', {
+      currentCount: result.nfts.length,
+      pageSize,
+      forceRefresh,
+    });
+
+    // Calculate which token IDs we need to fetch
+    const existingTokenIds = new Set(result.nfts.map(nft => nft.token_id));
+    const startTokenId = page * pageSize;
+    const endTokenId = (page + 1) * pageSize - 1;
+    const tokenIds = Array.from(
+      { length: endTokenId - startTokenId + 1 },
+      (_, i) => String(startTokenId + i)
+    ).filter(id => !existingTokenIds.has(id));
+
+    console.log('🎯 Token IDs to fetch:', {
+      startTokenId,
+      endTokenId,
+      existingCount: existingTokenIds.size,
+      toFetchCount: tokenIds.length,
+      firstFew: tokenIds.slice(0, 5),
+    });
+
+    if (tokenIds.length === 0) {
+      console.log('✨ All NFTs already in database');
+      return NextResponse.json({
+        nfts: result.nfts,
+        total: collection.total_supply || result.total,
+        hasMore: page * pageSize + result.nfts.length < (collection.total_supply || result.total),
+      });
+    }
+
+    // Fetch and store metadata for missing NFTs
+    console.log('🔍 Fetching metadata for missing NFTs');
+    const fetchedNFTs = await fetchAndStoreNFTMetadata(contractAddress, tokenIds, collection.id);
+    console.log('📦 Fetched NFT metadata:', {
+      count: fetchedNFTs.length,
+      firstNFT: fetchedNFTs[0] ? {
+        tokenId: fetchedNFTs[0].tokenId,
+        title: fetchedNFTs[0].title,
+        hasImage: !!fetchedNFTs[0].imageUrl,
+      } : null,
+    });
+
+    await updateCollectionRefreshTime(collection.id);
+    console.log('⏰ Updated collection refresh time');
+
+    const response: NFTResponse = {
+      nfts: fetchedNFTs.map(nft => ({
+        id: '', // This will be set by the database
+        collection_id: collection.id,
+        token_id: nft.tokenId,
+        title: nft.title || null,
+        description: nft.description || null,
+        image_url: nft.imageUrl || null,
+        thumbnail_url: nft.thumbnailUrl || null,
+        metadata: nft.metadata || null,
+        attributes: nft.attributes || null,
+        media: nft.media || null,
+        owner_address: null,
+        last_owner_check_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })),
+      total: collection.total_supply || result.total,
+    };
+
+    console.log('📤 Prepared response:', {
+      nftCount: response.nfts.length,
+      total: response.total,
+      firstNFT: response.nfts[0] ? {
+        tokenId: response.nfts[0].token_id,
+        title: response.nfts[0].title,
+      } : null,
+    });
+
+    // Cache the results
+    console.log('💾 Caching fetched NFTs');
+    await setCachedCollectionNFTs(contractAddress, page, pageSize, response);
+
+    // Invalidate collection cache to ensure fresh data
+    console.log('🗑️ Invalidating collection cache');
+    await invalidateCollectionCache(contractAddress);
+
+    return NextResponse.json({
+      nfts: response.nfts,
+      total: response.total,
+      hasMore: page * pageSize + response.nfts.length < response.total,
+    });
+
   } catch (error) {
     const { contractAddress } = await context.params;
     console.error('❌ Error in NFT endpoint:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      } : 'Unknown error',
       contractAddress,
     });
     return NextResponse.json(
@@ -580,4 +501,6 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}
+
+export { fetchAndStoreNFTMetadata, fetchOnChainMetadata }; 

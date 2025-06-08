@@ -1,7 +1,36 @@
+// Load environment variables first, before any imports
+import * as dotenv from 'dotenv';
+import { resolve } from 'path';
+import { existsSync } from 'fs';
+
+const envPath = resolve(process.cwd(), '.env.local');
+console.log('🔍 Environment Debug:');
+console.log('1. Current working directory:', process.cwd());
+console.log('2. Looking for .env.local at:', envPath);
+console.log('3. .env.local exists:', existsSync(envPath));
+
+// Load environment variables
+const result = dotenv.config({ path: envPath });
+console.log('4. dotenv config result:', {
+  error: result.error,
+  parsed: result.parsed ? Object.keys(result.parsed) : null
+});
+
+// Debug all environment variables
+console.log('5. Environment variables:');
+console.log('- NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? '✅ Set' : '❌ Missing');
+console.log('- SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing');
+console.log('- All env keys:', Object.keys(process.env).filter(key => key.includes('SUPABASE')));
+
+// Now import other modules after environment is loaded
 import { Redis } from '@upstash/redis';
-import { createClient } from '@supabase/supabase-js';
 import { Database } from '../types/database.types';
 import { Alchemy, Network, Nft } from 'alchemy-sdk';
+import { getSupabaseClient } from '../../src/lib/supabase';
+
+// Initialize clients
+const supabase = getSupabaseClient();
+console.log('✅ Supabase client initialized');
 
 // Define types for NFT metadata
 interface NFTAttribute {
@@ -27,15 +56,9 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN!,
 });
 
-// Initialize Supabase client
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 // Initialize Alchemy SDK
 const alchemy = new Alchemy({
-  apiKey: process.env.NEXT_PUBLIC_ALCHEMY_API_KEY,
+  apiKey: process.env.ALCHEMY_API_KEY,
   network: Network.BASE_MAINNET,
 });
 
@@ -206,7 +229,19 @@ async function main() {
   }
 }
 
-// Run the migration
-if (require.main === module) {
-  main();
+// Replace the require.main check with ESM-compatible check
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+
+// At the bottom, replace the require.main check with:
+if (isMainModule) {
+  // Run the seed function
+  main()
+    .then(() => {
+      console.log('✅ Seed completed successfully');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('❌ Seed failed:', error);
+      process.exit(1);
+    });
 } 

@@ -3,7 +3,7 @@ import { Alchemy, Network, NftContract } from 'alchemy-sdk';
 
 // Initialize Alchemy SDK
 const alchemy = new Alchemy({
-  apiKey: process.env.NEXT_PUBLIC_ALCHEMY_API_KEY,
+  apiKey: process.env.ALCHEMY_API_KEY,
   network: Network.BASE_MAINNET,
 });
 

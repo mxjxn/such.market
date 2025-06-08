@@ -67,15 +67,15 @@ async function killProcessOnPort(port) {
 }
 
 async function startDev() {
-  // Check if port 3001 is already in use
-  const isPortInUse = await checkPort(3001);
+  // Check if port 3000 is already in use (Next.js default port)
+  const isPortInUse = await checkPort(3000);
   if (isPortInUse) {
-    console.error('Port 3001 is already in use. To find and kill the process using this port:\n\n' +
+    console.error('Port 3000 is already in use. To find and kill the process using this port:\n\n' +
       (process.platform === 'win32' 
-        ? '1. Run: netstat -ano | findstr :3001\n' +
+        ? '1. Run: netstat -ano | findstr :3000\n' +
           '2. Note the PID (Process ID) from the output\n' +
           '3. Run: taskkill /PID <PID> /F\n'
-        : `On macOS/Linux, run:\nlsof -ti :3001 | xargs kill -9\n`) +
+        : `On macOS/Linux, run:\nlsof -ti :3000 | xargs kill -9\n`) +
       '\nThen try running this command again.');
     process.exit(1);
   }
@@ -84,17 +84,36 @@ async function startDev() {
   let frameUrl;
 
   if (useTunnel) {
-    // Start localtunnel and get URL
-    tunnel = await localtunnel({ port: 3001 });
-    let ip;
     try {
-      ip = await fetch('https://ipv4.icanhazip.com').then(res => res.text()).then(ip => ip.trim());
-    } catch (error) {
-      console.error('Error getting IP address:', error);
-    }
+      // Start localtunnel and get URL with retry logic
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          tunnel = await localtunnel({ 
+            port: 3000, // Use Next.js default port
+            subdomain: process.env.LOCALTUNNEL_SUBDOMAIN // Optional: use a specific subdomain if configured
+          });
+          
+          // Add error handler for tunnel
+          tunnel.on('error', (err) => {
+            console.error('❌ Tunnel error:', err.message);
+            if (err.message.includes('ECONNREFUSED')) {
+              console.log('⚠️  Connection refused. Make sure Next.js is running on port 3000.');
+            }
+            cleanup();
+          });
 
-    frameUrl = tunnel.url;
-    console.log(`
+          let ip;
+          try {
+            ip = await fetch('https://ipv4.icanhazip.com').then(res => res.text()).then(ip => ip.trim());
+          } catch (error) {
+            console.error('Error getting IP address:', error);
+          }
+
+          frameUrl = tunnel.url;
+          console.log(`
 🌐 Local tunnel URL: ${tunnel.url}
 
 💻 To test on desktop:
@@ -116,8 +135,27 @@ async function startDev() {
    4. Enter this URL: ${tunnel.url}
    5. Click "Preview" (note that it may take ~10 seconds to load)
 `);
+          break; // Successfully created tunnel, exit retry loop
+        } catch (err) {
+          retryCount++;
+          if (retryCount === maxRetries) {
+            throw new Error(`Failed to create tunnel after ${maxRetries} attempts: ${err.message}`);
+          }
+          console.log(`⚠️  Tunnel creation failed (attempt ${retryCount}/${maxRetries}). Retrying in 2 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to create tunnel:', error.message);
+      console.log('\nTroubleshooting tips:');
+      console.log('1. Check your internet connection');
+      console.log('2. Make sure no other localtunnel instances are running');
+      console.log('3. Try using a different subdomain by setting LOCALTUNNEL_SUBDOMAIN in .env.local');
+      console.log('4. If using a VPN, try disconnecting it');
+      process.exit(1);
+    }
   } else {
-    frameUrl = 'http://localhost:3001';
+    frameUrl = 'http://localhost:3000';
     console.log(`
 💻 To test your mini app:
    1. Open the Warpcast Mini App Developer Tools: https://warpcast.com/~/developers
@@ -130,11 +168,17 @@ async function startDev() {
   // Start next dev with appropriate configuration
   const nextBin = path.normalize(path.join(projectRoot, 'node_modules', '.bin', 'next'));
 
-  nextDev = spawn(nextBin, ['dev'], {
+  nextDev = spawn(nextBin, ['dev', '-p', '3000'], { // Explicitly set port to 3000
     stdio: 'inherit',
     env: { ...process.env, NEXT_PUBLIC_URL: frameUrl, NEXTAUTH_URL: frameUrl },
     cwd: projectRoot,
-    shell: process.platform === 'win32' // Add shell option for Windows
+    shell: process.platform === 'win32'
+  });
+
+  // Add error handler for Next.js process
+  nextDev.on('error', (err) => {
+    console.error('❌ Next.js process error:', err.message);
+    cleanup();
   });
 
   // Handle cleanup

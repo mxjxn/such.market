@@ -91,76 +91,124 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
   const [nfts, setNfts] = useState<NFT[]>([]);
   const [filteredNfts, setFilteredNfts] = useState<NFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pageKey, setPageKey] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [selectedTraits, setSelectedTraits] = useState<Record<string, string[]>>({});
+  const pageSize = 20;
 
-  const fetchNFTs = async (pageKey?: string, isLoadMore: boolean = false) => {
+  const fetchNFTs = async (pageNum: number, isLoadMore: boolean = false) => {
     try {
       const url = new URL(`/api/collection/${contractAddress}/nfts`, window.location.origin);
-      if (pageKey) {
-        url.searchParams.set('pageKey', pageKey);
-      }
+      url.searchParams.set('page', pageNum.toString());
+      url.searchParams.set('pageSize', pageSize.toString());
 
       console.log('🔄 Fetching NFTs:', {
         url: url.toString(),
-        pageKey,
+        page: pageNum,
         currentNFTCount: nfts.length,
         isLoadMore,
       });
+
+      if (isLoadMore) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
 
       const response = await fetch(url, {
         cache: isLoadMore ? 'no-store' : 'force-cache',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch NFTs');
+        const errorText = await response.text();
+        console.error('API Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`Failed to fetch NFTs: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      
+      if (!data || typeof data !== 'object') {
+        console.error('Invalid API Response:', data);
+        throw new Error('Invalid response format from server');
+      }
+
+      const { nfts: fetchedNFTs, total, hasMore: hasMoreNFTs } = data;
+      
+      if (!Array.isArray(fetchedNFTs)) {
+        console.error('Invalid NFT data in response:', {
+          received: fetchedNFTs,
+          type: typeof fetchedNFTs,
+          fullResponse: data
+        });
+        throw new Error('Invalid NFT data received from server');
+      }
+
       console.log('📦 Received NFT data:', {
-        newNFTsCount: data.nfts.length,
-        hasPageKey: !!data.pageKey,
+        newNFTsCount: fetchedNFTs.length,
+        total,
+        hasMore: hasMoreNFTs,
         isLoadMore,
+        firstNFT: fetchedNFTs[0] ? {
+          tokenId: fetchedNFTs[0].tokenId,
+          hasMetadata: !!fetchedNFTs[0].metadata,
+          hasMedia: !!fetchedNFTs[0].media?.length
+        } : null
       });
 
       if (isLoadMore) {
-        setNfts(prev => [...prev, ...data.nfts]);
+        setNfts(prev => [...prev, ...fetchedNFTs]);
       } else {
-        setNfts(data.nfts);
+        setNfts(fetchedNFTs);
       }
-      setPageKey(data.pageKey || null);
-      setHasMore(!!data.pageKey);
+      
+      setHasMore(hasMoreNFTs);
+      setPage(pageNum);
     } catch (err) {
-      console.error('❌ Error in NFTGrid:', {
-        error: err,
+      const errorDetails = {
+        name: err instanceof Error ? err.name : 'Unknown',
         message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : undefined,
         contractAddress,
-        pageKey,
+        page: pageNum,
         isLoadMore,
-      });
-      setError(err instanceof Error ? err.message : 'Failed to fetch NFTs');
+        timestamp: new Date().toISOString()
+      };
+      
+      console.error('❌ Error in NFTGrid:', errorDetails);
+      setError(errorDetails.message);
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
 
+  // Load initial NFTs
   useEffect(() => {
-    setIsLoading(true);
-    fetchNFTs();
+    fetchNFTs(0);
   }, [contractAddress]);
 
   // Filter NFTs based on selected traits
   useEffect(() => {
+    if (!Array.isArray(nfts)) {
+      console.warn('NFTs is not an array:', nfts);
+      setFilteredNfts([]);
+      return;
+    }
+
     if (Object.keys(selectedTraits).length === 0) {
       setFilteredNfts(nfts);
       return;
     }
 
     const filtered = nfts.filter(nft => {
-      if (!nft.metadata?.attributes) return false;
+      if (!nft?.metadata?.attributes) return false;
       
       // Check if NFT has all selected traits
       return Object.entries(selectedTraits).every(([traitType, values]) => {
@@ -187,10 +235,10 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
     });
   };
 
+  // Load more NFTs
   const loadMore = () => {
-    if (pageKey && hasMore && !isLoading) {
-      setIsLoading(true);
-      fetchNFTs(pageKey, true);
+    if (!isLoadingMore && hasMore) {
+      fetchNFTs(page + 1, true);
     }
   };
 
@@ -253,142 +301,99 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
 
       <div className="flex gap-6">
         {/* Trait Filter Sidebar */}
-        <TraitFilter
-          traits={nfts.flatMap(nft => nft.metadata?.attributes || [])}
-          selectedTraits={selectedTraits}
-          onTraitChange={handleTraitChange}
-        />
+        {Array.isArray(nfts) && nfts.length > 0 && (
+          <TraitFilter
+            traits={nfts
+              .filter(nft => Array.isArray(nft?.metadata?.attributes))
+              .flatMap(nft => nft.metadata?.attributes || [])}
+            selectedTraits={selectedTraits}
+            onTraitChange={handleTraitChange}
+          />
+        )}
 
         {/* NFT Grid/List */}
         <div className="flex-1">
-          {isLoading && nfts.length === 0 ? (
-            <div className="flex justify-center items-center py-8">
+          {isLoading ? (
+            <div className="flex justify-center items-center min-h-[200px]">
               <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+            </div>
+          ) : error ? (
+            <div className="text-center text-red-500">{error}</div>
+          ) : !Array.isArray(filteredNfts) || filteredNfts.length === 0 ? (
+            <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+              No NFTs found
             </div>
           ) : (
             <>
-              {view === 'grid' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {filteredNfts.map((nft) => {
-                    const imageUrl = getImageUrl(nft);
-                    const uniqueKey = `${contractAddress}-${nft.tokenId}`;
-                    const isIpfsUrl = imageUrl?.includes('ipfs') ?? false;
-                    
-                    return (
-                      <div
-                        key={uniqueKey}
-                        className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
-                      >
-                        <div className="relative aspect-square">
-                          {imageUrl ? (
-                            <Image
-                              src={imageUrl}
-                              alt={nft.title || `NFT #${nft.tokenId}`}
-                              fill
-                              className="object-cover"
-                              unoptimized={isIpfsUrl}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-700">
-                              <span className="text-gray-400 dark:text-gray-500">No image</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-4">
-                          <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                            {nft.title || `NFT #${nft.tokenId}`}
-                          </h3>
-                          {nft.metadata?.attributes && nft.metadata.attributes.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {nft.metadata.attributes.slice(0, 2).map((attr, index) => (
-                                <span
-                                  key={index}
-                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                                >
-                                  {attr.trait_type}: {attr.value}
-                                </span>
-                              ))}
-                              {nft.metadata.attributes.length > 2 && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                                  +{nft.metadata.attributes.length - 2} more
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
+              <div className={view === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' : 'space-y-4'}>
+                {filteredNfts.map((nft) => {
+                  if (!nft) return null;
+                  const imageUrl = getImageUrl(nft);
+                  const uniqueKey = `${contractAddress}-${nft.tokenId}`;
+                  const isIpfsUrl = imageUrl?.includes('ipfs') ?? false;
+                  
+                  return (
+                    <div
+                      key={uniqueKey}
+                      className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
+                    >
+                      <div className="relative aspect-square">
+                        {imageUrl ? (
+                          <Image
+                            src={imageUrl}
+                            alt={nft.title || `NFT #${nft.tokenId}`}
+                            fill
+                            className="object-cover"
+                            unoptimized={isIpfsUrl}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+                            <span className="text-gray-400 dark:text-gray-500">No image</span>
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredNfts.map((nft) => {
-                    const imageUrl = getImageUrl(nft);
-                    const uniqueKey = `${contractAddress}-${nft.tokenId}`;
-                    const isIpfsUrl = imageUrl?.includes('ipfs') ?? false;
-                    
-                    return (
-                      <div
-                        key={uniqueKey}
-                        className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
-                      >
-                        <div className="flex">
-                          <div className="relative w-32 h-32 flex-shrink-0">
-                            {imageUrl ? (
-                              <Image
-                                src={imageUrl}
-                                alt={nft.title || `NFT #${nft.tokenId}`}
-                                fill
-                                className="object-cover"
-                                unoptimized={isIpfsUrl}
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-700">
-                                <span className="text-gray-400 dark:text-gray-500">No image</span>
-                              </div>
+                      <div className="p-4">
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                          {nft.title || `NFT #${nft.tokenId}`}
+                        </h3>
+                        {nft.metadata?.attributes && nft.metadata.attributes.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {nft.metadata.attributes.slice(0, 2).map((attr, index) => (
+                              <span
+                                key={index}
+                                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                              >
+                                {attr.trait_type}: {attr.value}
+                              </span>
+                            ))}
+                            {nft.metadata.attributes.length > 2 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                                +{nft.metadata.attributes.length - 2} more
+                              </span>
                             )}
                           </div>
-                          <div className="flex-1 p-4">
-                            <h3 className="font-semibold text-gray-900 dark:text-white">
-                              {nft.title || `NFT #${nft.tokenId}`}
-                            </h3>
-                            {nft.metadata?.description && (
-                              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                                {nft.metadata.description}
-                              </p>
-                            )}
-                            {nft.metadata?.attributes && nft.metadata.attributes.length > 0 && (
-                              <div className="mt-2 flex flex-wrap gap-1">
-                                {nft.metadata.attributes.map((attr, index) => (
-                                  <span
-                                    key={index}
-                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
-                                  >
-                                    {attr.trait_type}: {attr.value}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    </div>
+                  );
+                })}
+              </div>
 
               {/* Load More Button */}
-              {hasMore && !isLoading && (
-                <div className="mt-8 flex justify-center">
+              {hasMore && (
+                <div className="flex justify-center mt-8">
                   <button
                     onClick={loadMore}
-                    disabled={isLoading}
-                    className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200"
+                    disabled={isLoadingMore}
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
-                    {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Loading...</span>
+                      </>
                     ) : (
-                      'Load More'
+                      <span>Load More</span>
                     )}
                   </button>
                 </div>

@@ -2,16 +2,9 @@
 
 import { useEffect, useState, memo } from 'react';
 import { useParams } from 'next/navigation';
-import { Alchemy, Network } from 'alchemy-sdk';
 import { Loader2, RefreshCw } from 'lucide-react';
 import NFTGrid from '../../../components/NFTGrid';
 import { SearchBar } from '../../../components/SearchBar';
-
-// Initialize Alchemy SDK
-const alchemy = new Alchemy({
-  apiKey: process.env.NEXT_PUBLIC_ALCHEMY_API_KEY,
-  network: Network.BASE_MAINNET,
-});
 
 interface CollectionData {
   name: string | null;
@@ -138,48 +131,54 @@ export default function CollectionPage() {
       }
 
       try {
-        // Get contract metadata
-        const metadata = await alchemy.nft.getContractMetadata(params.contractAddress);
-        
-        // Determine contract type based on metadata
-        let contractType: 'ERC721' | 'ERC1155' | 'UNKNOWN' = 'UNKNOWN';
-        if (metadata.tokenType === 'ERC721') {
-          contractType = 'ERC721';
-        } else if (metadata.tokenType === 'ERC1155') {
-          contractType = 'ERC1155';
+        // Fetch metadata from our API route instead of Alchemy directly
+        const response = await fetch(`/api/collection/${params.contractAddress}/metadata`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch collection data');
         }
-
-        // Store collection name in Redis if we have one
+        
+        const metadata = await response.json();
+        
+        // Store collection name in Redis if we have one and it's not already stored
         if (metadata.name) {
           try {
-            const response = await fetch('/api/store-collection', {
+            // First check if collection exists
+            const checkResponse = await fetch('/api/collection-exists', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                name: metadata.name,
                 address: params.contractAddress.toLowerCase(),
               }),
             });
             
-            if (!response.ok) {
-              const errorData = await response.json().catch(() => ({}));
-              console.warn('Failed to store collection name:', errorData.error || response.statusText);
-              // Don't set error state here - this is non-critical
+            const { exists } = await checkResponse.json();
+            
+            if (!exists) {
+              const storeResponse = await fetch('/api/store-collection', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  name: metadata.name,
+                  address: params.contractAddress.toLowerCase(),
+                }),
+              });
+              
+              if (!storeResponse.ok) {
+                const errorData = await storeResponse.json().catch(() => ({}));
+                console.warn('Failed to store collection name:', errorData.error || storeResponse.statusText);
+              }
             }
           } catch (err) {
-            console.warn('Error storing collection name:', err);
-            // Don't set error state here - this is non-critical
+            console.warn('Error checking/storing collection name:', err);
           }
         }
 
-        setCollectionData({
-          name: metadata.name ?? null,
-          symbol: metadata.symbol ?? null,
-          totalSupply: metadata.totalSupply ?? null,
-          contractType,
-        });
+        setCollectionData(metadata);
       } catch (err) {
         console.error('Error fetching collection data:', err);
         setError(err instanceof Error ? err.message : 'Failed to load collection data. Please try again later.');

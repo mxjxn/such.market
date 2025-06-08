@@ -63,3 +63,27 @@ logs
 # Cache
 .cache/
 .turbo
+
+# Temporary credential files
+*_temp.txt
+*_temp.*
+
+# Configuration files that might contain secrets
+/config/*
+!/config/example.*
+
+# Database and API related
+/supabase/*
+!/supabase/example.*
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.env
+*.env.*
+!.env.example.*
+
+# Scripts that might contain secrets
+/scripts/vercel-env.js
+/scripts/*.env.js

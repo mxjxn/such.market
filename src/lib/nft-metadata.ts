@@ -12,14 +12,30 @@ const ERC1155_METADATA_ABI = [
 ];
 
 // Metadata interface
-interface NFTMetadata {
+export interface NFTMetadata {
   name?: string;
   description?: string;
   image?: string;
+  external_url?: string;
+  animation_url?: string;
+  background_color?: string;
   attributes?: Array<{
     trait_type: string;
     value: string | number;
+    display_type?: 'number' | 'boost_number' | 'boost_percentage' | 'date';
+    max_value?: number;
   }>;
+  collection?: {
+    name: string;
+    family?: string;
+  };
+  properties?: {
+    category?: string;
+    files?: Array<{
+      uri: string;
+      type: string;
+    }>;
+  };
   [key: string]: unknown;
 }
 
@@ -86,7 +102,7 @@ async function getProviderWithRetry(): Promise<JsonRpcProvider> {
 async function retryContractCall<T>(
   contract: ethers.Contract,
   functionName: string,
-  args: any[],
+  args: unknown[],
   maxRetries: number = 3,
   delayMs: number = 1000
 ): Promise<T> {
@@ -107,12 +123,12 @@ async function retryContractCall<T>(
       console.log(`⚠️ Attempt ${i + 1} failed:`, {
         functionName,
         error: error instanceof Error ? error.message : 'Unknown error',
-        code: (error as any)?.code,
-        reason: (error as any)?.reason,
+        code: (error as { code?: string })?.code,
+        reason: (error as { reason?: string })?.reason,
       });
       
       // If it's not a revert, don't retry
-      if ((error as any)?.code !== 'CALL_EXCEPTION') {
+      if ((error as { code?: string })?.code !== 'CALL_EXCEPTION') {
         throw error;
       }
     }
@@ -188,8 +204,8 @@ export async function getOnChainMetadata(
             contractAddress,
             tokenId,
             error: error instanceof Error ? error.message : 'Unknown error',
-            code: (error as any)?.code,
-            reason: (error as any)?.reason,
+            code: (error as { code?: string })?.code,
+            reason: (error as { reason?: string })?.reason,
           });
           return null;
         }

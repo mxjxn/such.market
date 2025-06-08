@@ -48,14 +48,15 @@ pnpm install
 ```env
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key  # For client-side access
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key  # For server-side admin access
 
 # Redis
 KV_REST_API_URL=your_redis_url
 KV_REST_API_TOKEN=your_redis_token
 
 # Alchemy
-NEXT_PUBLIC_ALCHEMY_API_KEY=your_alchemy_api_key
+ALCHEMY_API_KEY=your_alchemy_api_key
 
 # Neynar
 NEXT_PUBLIC_NEYNAR_API_KEY=your_neynar_api_key
