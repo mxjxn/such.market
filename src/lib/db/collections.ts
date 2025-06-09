@@ -31,6 +31,14 @@ const ERC721_METADATA_ABI: Abi = [
   parseAbiItem('function name() view returns (string)'),
   parseAbiItem('function symbol() view returns (string)'),
   parseAbiItem('function totalSupply() view returns (uint256)'),
+  parseAbiItem('function ownerOf(uint256 tokenId) view returns (address)'),
+];
+
+// Add ERC1155 ABI items for metadata fetching
+const ERC1155_METADATA_ABI: Abi = [
+  parseAbiItem('function name() view returns (string)'),
+  parseAbiItem('function symbol() view returns (string)'),
+  parseAbiItem('function uri(uint256 tokenId) view returns (string)'),
 ];
 
 type Collection = Database['public']['Tables']['collections']['Row'];
@@ -233,7 +241,164 @@ export async function fetchAndStoreCollectionMetadata(contractAddress: string) {
   console.log('🔄 Fetching collection metadata:', contractAddress);
   
   try {
-    // Try Alchemy first
+    // Try on-chain first for ERC721
+    try {
+      const client = await getProviderWithRetry();
+      const address = contractAddress as Address;
+      
+      // Try ERC721 first
+      try {
+        const [name, symbol, totalSupply] = await Promise.all([
+          retryContractCall<string>(
+            client,
+            address,
+            ERC721_METADATA_ABI,
+            'name',
+            []
+          ),
+          retryContractCall<string>(
+            client,
+            address,
+            ERC721_METADATA_ABI,
+            'symbol',
+            []
+          ),
+          retryContractCall<bigint>(
+            client,
+            address,
+            ERC721_METADATA_ABI,
+            'totalSupply',
+            []
+          )
+        ]);
+
+        // Verify it's an ERC721 by trying ownerOf
+        try {
+          await retryContractCall<Address>(
+            client,
+            address,
+            ERC721_METADATA_ABI,
+            'ownerOf',
+            [BigInt(0)]
+          );
+
+          // Insert/update collection in database
+          const { data: collectionData, error: collectionError } = await supabase
+            .from('collections')
+            .upsert({
+              contract_address: contractAddress.toLowerCase(),
+              name: name || null,
+              symbol: symbol || null,
+              token_type: 'ERC721',
+              total_supply: totalSupply ? Number(totalSupply) : null,
+              verified: true,
+              last_refresh_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+          if (collectionError) {
+            console.error('❌ Error upserting collection:', collectionError);
+            throw collectionError;
+          }
+
+          if (!collectionData) {
+            throw new Error('Failed to upsert collection');
+          }
+
+          return collectionData;
+        } catch (error) {
+          console.log('⚠️ Not an ERC721 contract, trying ERC1155:', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            contractAddress,
+          });
+          // Continue to ERC1155
+        }
+      } catch (error) {
+        console.log('⚠️ ERC721 metadata fetch failed, trying ERC1155:', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          contractAddress,
+        });
+        // Continue to ERC1155
+      }
+
+      // Try ERC1155
+      try {
+        const [name, symbol] = await Promise.all([
+          retryContractCall<string>(
+            client,
+            address,
+            ERC1155_METADATA_ABI,
+            'name',
+            []
+          ),
+          retryContractCall<string>(
+            client,
+            address,
+            ERC1155_METADATA_ABI,
+            'symbol',
+            []
+          )
+        ]);
+
+        // Verify it's an ERC1155 by trying uri
+        try {
+          await retryContractCall<string>(
+            client,
+            address,
+            ERC1155_METADATA_ABI,
+            'uri',
+            [BigInt(0)]
+          );
+
+          // Insert/update collection in database
+          const { data: collectionData, error: collectionError } = await supabase
+            .from('collections')
+            .upsert({
+              contract_address: contractAddress.toLowerCase(),
+              name: name || null,
+              symbol: symbol || null,
+              token_type: 'ERC1155',
+              total_supply: null, // ERC1155 doesn't have totalSupply
+              verified: true,
+              last_refresh_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+          if (collectionError) {
+            console.error('❌ Error upserting collection:', collectionError);
+            throw collectionError;
+          }
+
+          if (!collectionData) {
+            throw new Error('Failed to upsert collection');
+          }
+
+          return collectionData;
+        } catch (error) {
+          console.log('⚠️ Not an ERC1155 contract, falling back to Alchemy:', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            contractAddress,
+          });
+          // Continue to Alchemy fallback
+        }
+      } catch (error) {
+        console.log('⚠️ ERC1155 metadata fetch failed, falling back to Alchemy:', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          contractAddress,
+        });
+        // Continue to Alchemy fallback
+      }
+    } catch (error) {
+      console.log('⚠️ On-chain metadata fetch failed, falling back to Alchemy:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        contractAddress,
+      });
+      // Continue to Alchemy fallback
+    }
+
+    // Fallback to Alchemy
     const metadata = await alchemy.nft.getContractMetadata(contractAddress);
     
     // Insert/update collection in database
@@ -242,6 +407,7 @@ export async function fetchAndStoreCollectionMetadata(contractAddress: string) {
       .upsert({
         contract_address: contractAddress.toLowerCase(),
         name: metadata.name || null,
+        symbol: metadata.symbol || null,
         token_type: metadata.tokenType as 'ERC721' | 'ERC1155',
         total_supply: metadata.totalSupply ? Number(metadata.totalSupply) : null,
         verified: true,
@@ -257,32 +423,6 @@ export async function fetchAndStoreCollectionMetadata(contractAddress: string) {
 
     if (!collectionData) {
       throw new Error('Failed to upsert collection');
-    }
-
-    // Try to get total supply from contract if not available from Alchemy
-    if (!metadata.totalSupply && metadata.tokenType === 'ERC721') {
-      try {
-        const client = await getProviderWithRetry();
-        const address = contractAddress as Address;
-        const totalSupply = await retryContractCall<bigint>(
-          client,
-          address,
-          ERC721_METADATA_ABI,
-          'totalSupply',
-          []
-        );
-
-        if (totalSupply) {
-          await updateCollectionRefreshTime(collectionData.id, Number(totalSupply));
-        }
-      } catch (error) {
-        console.error('❌ Error fetching total supply:', error);
-        // Don't throw here - we still want to return the collection data
-      }
-    } else if (!metadata.totalSupply) {
-      // For ERC1155, we can't get total supply directly
-      // We'll just update the refresh time
-      await updateCollectionRefreshTime(collectionData.id);
     }
 
     return collectionData;

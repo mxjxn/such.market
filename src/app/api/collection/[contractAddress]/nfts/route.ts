@@ -14,6 +14,46 @@ console.log('🔑 [NFT Endpoint] Environment variables:', envVars);
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollectionByAddress, getCollectionNFTs } from '~/lib/db/collections';
 import { fetchAndStoreNFTMetadata } from '~/lib/nft-metadata';
+import { createPublicClient, http, parseAbiItem, type Address } from 'viem';
+import { base } from 'viem/chains';
+
+// Initialize viem client
+const client = createPublicClient({
+  chain: base,
+  transport: http(process.env.BASE_MAINNET_RPC!),
+});
+
+// Add ERC721 ABI items for metadata fetching
+const ERC721_METADATA_ABI = [
+  parseAbiItem('function ownerOf(uint256 tokenId) view returns (address)'),
+] as const;
+
+// Helper function to retry contract calls
+async function retryContractCall<T>(
+  address: Address,
+  abi: typeof ERC721_METADATA_ABI,
+  functionName: 'ownerOf',
+  args: readonly [bigint],
+  maxRetries = 3
+): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await client.readContract({
+        address,
+        abi,
+        functionName,
+        args,
+      }) as T;
+    } catch (error) {
+      lastError = error;
+      if (i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+      }
+    }
+  }
+  throw lastError;
+}
 
 export async function GET(
   request: NextRequest,
@@ -62,176 +102,149 @@ export async function GET(
         );
       }
 
-      // Get existing NFTs with pagination
-      console.log(`📦 [${requestId}] Fetching existing NFTs...`);
-      try {
-        const existingNFTs = await getCollectionNFTs(params.contractAddress, page, pageSize);
-        console.log(`📊 [${requestId}] Existing NFTs query result:`, {
-          collectionId: collection.id,
-          count: existingNFTs?.nfts?.length ?? 0,
-          total: existingNFTs?.total ?? 0,
-          page,
-          pageSize,
-          hasMore: existingNFTs ? (page * pageSize + (existingNFTs.nfts?.length ?? 0) < (existingNFTs.total ?? 0)) : false,
-          firstNFT: existingNFTs?.nfts?.[0] ? {
-            tokenId: existingNFTs.nfts[0].token_id,
-            title: existingNFTs.nfts[0].title,
-            hasImage: !!existingNFTs.nfts[0].image_url,
-            raw: existingNFTs.nfts[0], // Log the entire first NFT for debugging
-          } : null,
-          raw: existingNFTs, // Log the entire response for debugging
-        });
+      // Get NFTs from database
+      const { nfts: dbNFTs, total } = await getCollectionNFTs(
+        params.contractAddress,
+        page,
+        pageSize
+      );
 
-        // If we have NFTs, return them
-        if (existingNFTs?.nfts?.length > 0) {
-          console.log(`✅ [${requestId}] Returning existing NFTs:`, {
-            count: existingNFTs.nfts.length,
-            firstNFT: existingNFTs.nfts[0] ? {
-              tokenId: existingNFTs.nfts[0].token_id,
-              title: existingNFTs.nfts[0].title,
-              hasImage: !!existingNFTs.nfts[0].image_url,
-              raw: existingNFTs.nfts[0], // Log the entire first NFT for debugging
-            } : null,
+      console.log(`📊 [${requestId}] Database NFT stats:`, {
+        nftCount: dbNFTs.length,
+        total,
+        page,
+        pageSize,
+        contractAddress: params.contractAddress,
+      });
+
+      let nfts = dbNFTs;
+      let hasMore = true;
+
+      // If we don't have a full page from the database, try to fetch missing NFTs from blockchain
+      if (dbNFTs.length < pageSize) {
+        console.log(`🔄 [${requestId}] Incomplete page from database (${dbNFTs.length}/${pageSize}), fetching missing NFTs from blockchain...`);
+        
+        // Calculate which token IDs we need to fetch
+        const existingTokenIds = new Set(dbNFTs.map(nft => nft.token_id));
+        const startTokenId = page * pageSize;
+        const missingTokenIds = Array.from(
+          { length: pageSize },
+          (_, i) => String(startTokenId + i)
+        ).filter(id => !existingTokenIds.has(id));
+
+        if (missingTokenIds.length > 0) {
+          console.log(`🔍 [${requestId}] Fetching missing token IDs:`, {
+            missingCount: missingTokenIds.length,
+            missingIds: missingTokenIds,
           });
 
-          const response = {
-            nfts: existingNFTs.nfts,
-            total: existingNFTs.total,
-            hasMore: page * pageSize + existingNFTs.nfts.length < existingNFTs.total,
-          };
-
-          console.log(`📤 [${requestId}] Sending response:`, {
-            nftCount: response.nfts.length,
-            total: response.total,
-            hasMore: response.hasMore,
-            raw: response, // Log the entire response for debugging
-          });
-
-          return NextResponse.json(response);
-        }
-
-        // If no NFTs, fetch and store them
-        console.log(`🔄 [${requestId}] No NFTs found, fetching from chain...`, {
-          contractAddress: params.contractAddress,
-          collectionId: collection.id,
-          page,
-          pageSize,
-          tokenIds: Array.from({ length: pageSize }, (_, i) => String(page * pageSize + i + 1)),
-        });
-
-        try {
-          const nfts = await fetchAndStoreNFTMetadata(
-            params.contractAddress,
-            Array.from({ length: pageSize }, (_, i) => String(page * pageSize + i + 1)),
-            collection.id
-          );
-
-          console.log(`📝 [${requestId}] fetchAndStoreNFTMetadata result:`, {
-            success: !!nfts,
-            count: nfts?.length ?? 0,
-            firstNFT: nfts?.[0] ? {
-              tokenId: nfts[0].token_id,
-              title: nfts[0].title,
-              hasImage: !!nfts[0].image_url,
-              raw: nfts[0], // Log the entire first NFT for debugging
-            } : null,
-            raw: nfts, // Log the entire response for debugging
-          });
-
-          // Check if we got any NFTs back
-          if (!nfts || nfts.length === 0) {
-            console.error(`❌ [${requestId}] No NFTs were fetched successfully:`, {
-              contractAddress: params.contractAddress,
-              collectionId: collection.id,
-              page,
-              pageSize,
-              phase: 'fetchAndStoreNFTMetadata',
-              raw: nfts, // Log the raw response for debugging
-            });
-            return NextResponse.json(
-              { 
-                error: 'Failed to fetch NFTs',
-                details: 'No NFTs could be fetched from the contract. This could be due to invalid metadata or contract implementation.',
-                contractAddress: params.contractAddress,
-                page,
-                pageSize,
-                raw: nfts, // Include raw response in error
-              },
-              { status: 500 }
+          try {
+            // Fetch missing NFTs from blockchain
+            await fetchAndStoreNFTMetadata(
+              params.contractAddress,
+              missingTokenIds,
+              collection.id
             );
-          }
 
-          const response = {
-            nfts,
-            total: collection.total_supply || nfts.length,
-            hasMore: page * pageSize + nfts.length < (collection.total_supply || nfts.length),
-          };
-
-          console.log(`📤 [${requestId}] Sending response:`, {
-            nftCount: response.nfts.length,
-            total: response.total,
-            hasMore: response.hasMore,
-            raw: response, // Log the entire response for debugging
-          });
-
-          return NextResponse.json(response);
-        } catch (error) {
-          console.error(`❌ [${requestId}] Error fetching and storing NFTs:`, {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined,
-            contractAddress: params.contractAddress,
-            collectionId: collection.id,
-            page,
-            pageSize,
-            phase: 'fetchAndStoreNFTMetadata',
-            raw: error, // Log the raw error for debugging
-          });
-          return NextResponse.json(
-            { 
-              error: 'Failed to fetch NFTs',
-              details: error instanceof Error ? error.message : 'Unknown error occurred while fetching NFTs',
-              contractAddress: params.contractAddress,
+            // Get all NFTs for this page (including newly fetched ones)
+            const { nfts: updatedNFTs } = await getCollectionNFTs(
+              params.contractAddress,
               page,
-              pageSize,
-              raw: error, // Include raw error in response
-            },
-            { status: 500 }
+              pageSize
+            );
+
+            console.log(`✅ [${requestId}] Updated NFT count after blockchain fetch:`, {
+              before: dbNFTs.length,
+              after: updatedNFTs.length,
+              missingFetched: updatedNFTs.length - dbNFTs.length,
+            });
+
+            nfts = updatedNFTs;
+          } catch (error) {
+            console.error(`❌ [${requestId}] Error fetching missing NFTs from blockchain:`, {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              type: error instanceof Error ? error.name : typeof error,
+            });
+            // Don't throw here, we'll return what we have from the database
+          }
+        }
+      }
+
+      // Always check the next token on-chain to determine if we've reached the end
+      try {
+        const nextTokenId = (page + 1) * pageSize;
+        
+        // Try to get the owner of the next token
+        try {
+          await retryContractCall<Address>(
+            params.contractAddress as Address,
+            ERC721_METADATA_ABI,
+            'ownerOf',
+            [BigInt(nextTokenId)]
           );
+          // If we get here, the token exists
+          hasMore = true;
+          console.log(`✅ [${requestId}] Next token ${nextTokenId} exists`);
+        } catch (error) {
+          // Check if the error indicates the token doesn't exist
+          const errorMessage = error instanceof Error ? error.message : '';
+          if (errorMessage.includes('execution reverted') || 
+              errorMessage.includes('call revert exception') ||
+              errorMessage.includes('ERC721: invalid token ID')) {
+            // Token doesn't exist, we've reached the end
+            hasMore = false;
+            console.log(`🔚 [${requestId}] Reached end of collection at token ${nextTokenId}:`, {
+              error: errorMessage,
+              type: error instanceof Error ? error.name : typeof error,
+            });
+          } else {
+            // Some other error, assume there might be more
+            hasMore = true;
+            console.log(`⚠️ [${requestId}] Error checking next token, assuming more exist:`, {
+              error: errorMessage,
+              type: error instanceof Error ? error.name : typeof error,
+            });
+          }
         }
       } catch (error) {
-        console.error(`❌ [${requestId}] Error in getCollectionNFTs:`, {
+        console.error(`❌ [${requestId}] Error checking for more NFTs:`, {
           error: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined,
-          contractAddress: params.contractAddress,
-          page,
-          pageSize,
-          phase: 'getCollectionNFTs',
-          raw: error, // Log the raw error for debugging
+          type: error instanceof Error ? error.name : typeof error,
         });
-        return NextResponse.json(
-          { 
-            error: 'Failed to fetch NFTs',
-            details: error instanceof Error ? error.message : 'Error occurred while fetching existing NFTs',
-            contractAddress: params.contractAddress,
-            page,
-            pageSize,
-            raw: error, // Include raw error in response
-          },
-          { status: 500 }
-        );
+        // On error, assume there might be more
+        hasMore = true;
       }
+
+      const response = {
+        nfts,
+        total: nfts.length, // Use actual NFT count
+        hasMore,
+        raw: { nfts, total: nfts.length },
+      };
+
+      console.log(`📤 [${requestId}] Sending response:`, {
+        nftCount: response.nfts.length,
+        total: response.total,
+        hasMore: response.hasMore,
+        reason: hasMore ? 'next token exists or error occurred' : 'reached end of collection',
+        raw: response,
+      });
+
+      return NextResponse.json(response);
     } catch (error) {
-      console.error(`❌ [${requestId}] Error in getCollectionByAddress:`, {
+      console.error(`❌ [${requestId}] Error in getCollectionNFTs:`, {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         contractAddress: params.contractAddress,
-        phase: 'getCollectionByAddress',
+        page,
+        pageSize,
+        phase: 'getCollectionNFTs',
         raw: error, // Log the raw error for debugging
       });
       return NextResponse.json(
         { 
           error: 'Failed to fetch NFTs',
-          details: error instanceof Error ? error.message : 'Error occurred while fetching collection',
+          details: error instanceof Error ? error.message : 'Error occurred while fetching existing NFTs',
           contractAddress: params.contractAddress,
           page,
           pageSize,

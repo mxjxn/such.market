@@ -258,17 +258,11 @@ export default function CollectionPage() {
             />
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-              <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Symbol</h2>
-              <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                {collectionData.symbol || 'N/A'}
-              </p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
               <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Total Supply</h2>
               <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                {collectionData.totalSupply || 'N/A'}
+                {collectionData.totalSupply || 'Unknown'}
               </p>
             </div>
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">

@@ -136,132 +136,63 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
         setIsLoading(true);
       }
 
-      console.log('📡 Initiating fetch request...');
       const response = await fetch(url, {
         cache: isLoadMore ? 'no-store' : 'force-cache',
       });
-      console.log('📥 Received response:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        ok: response.ok,
-        type: response.type,
-        url: response.url
-      });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ API Error Details:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          body: errorText,
-          url: response.url,
-          timestamp: new Date().toISOString()
-        });
-        
-        // Handle 404 as a special case - collection not found
-        if (response.status === 404) {
-          setError('Collection not found. It may be initializing, please try again in a moment.');
-          setNfts([]);
-          setHasMore(false);
-          return;
-        }
-        
-        throw new Error(`Failed to fetch NFTs: ${response.status} ${response.statusText} - ${errorText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch NFTs');
       }
 
-      console.log('📦 Attempting to parse response as JSON...');
       const data = await response.json();
-      console.log('✅ Successfully parsed JSON response:', {
-        hasData: !!data,
-        dataType: typeof data,
-        keys: data ? Object.keys(data) : null,
-        timestamp: new Date().toISOString()
-      });
-      
-      if (!data || typeof data !== 'object') {
-        console.error('❌ Invalid API Response Structure:', {
-          received: data,
-          type: typeof data,
-          timestamp: new Date().toISOString()
-        });
-        throw new Error('Invalid response format from server');
-      }
-
-      const { nfts: fetchedNFTs, total, hasMore: hasMoreNFTs } = data;
-      
-      if (!Array.isArray(fetchedNFTs)) {
-        console.error('❌ Invalid NFT data structure:', {
-          received: fetchedNFTs,
-          type: typeof fetchedNFTs,
-          fullResponse: data,
-          timestamp: new Date().toISOString()
-        });
-        throw new Error('Invalid NFT data received from server');
-      }
-
-      console.log('🎉 Successfully processed NFT data:', {
-        newNFTsCount: fetchedNFTs.length,
-        total,
-        hasMore: hasMoreNFTs,
+      console.log('📥 Received NFT data:', {
+        count: data.nfts?.length ?? 0,
+        hasMore: data.hasMore,
+        total: data.total,
+        page: pageNum,
         isLoadMore,
-        firstNFT: fetchedNFTs[0] ? {
-          tokenId: fetchedNFTs[0].token_id,
-          hasMetadata: !!fetchedNFTs[0].metadata,
-          hasMedia: !!fetchedNFTs[0].media?.length,
-          title: fetchedNFTs[0].title,
-          imageUrl: fetchedNFTs[0].image_url
-        } : null,
-        timestamp: new Date().toISOString()
+        raw: data, // Log the entire response
       });
 
       if (isLoadMore) {
-        // Create a Map of existing NFTs using token_id as key
-        const existingNFTsMap = new Map(nfts.map(nft => [nft.token_id, nft]));
-        
-        // Add new NFTs to the map, overwriting any duplicates
-        fetchedNFTs.forEach(nft => {
-          if (nft.token_id) {
-            existingNFTsMap.set(nft.token_id, nft);
-          }
-        });
-        
-        // Convert map back to array
-        const uniqueNFTs = Array.from(existingNFTsMap.values());
-        
-        // Sort by token_id to maintain consistent order
-        uniqueNFTs.sort((a, b) => {
-          const aId = parseInt(a.token_id) || 0;
-          const bId = parseInt(b.token_id) || 0;
-          return aId - bId;
-        });
-        
-        setNfts(uniqueNFTs);
+        setNfts(prev => [...prev, ...(data.nfts || [])]);
       } else {
-        setNfts(fetchedNFTs);
+        setNfts(data.nfts || []);
       }
-      
-      setHasMore(hasMoreNFTs);
-      setPage(pageNum);
+
+      // Only set hasMore to false if we explicitly got that response
+      // This means we've hit the end of the collection
+      const newHasMore = data.hasMore ?? true;
+      console.log('🔄 Setting hasMore state:', {
+        from: hasMore,
+        to: newHasMore,
+        reason: data.hasMore === undefined ? 'default to true' : 'from API response',
+        raw: data.hasMore,
+      });
+      setHasMore(newHasMore);
+      setError(null);
     } catch (err) {
-      const errorDetails = {
-        name: err instanceof Error ? err.name : 'Unknown',
-        message: err instanceof Error ? err.message : 'Unknown error',
-        stack: err instanceof Error ? err.stack : undefined,
-        contractAddress,
-        page: pageNum,
-        isLoadMore,
-        timestamp: new Date().toISOString()
-      };
-      
-      console.error('❌ Error in NFTGrid:', errorDetails);
-      setError(errorDetails.message);
+      console.error('❌ Error fetching NFTs:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch NFTs');
+      // Don't set hasMore to false on error - we'll try again next time
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
   };
+
+  // Add effect to log state changes
+  useEffect(() => {
+    console.log('🔄 NFTGrid state updated:', {
+      nftCount: nfts.length,
+      hasMore,
+      isLoading,
+      isLoadingMore,
+      error,
+      page,
+    });
+  }, [nfts.length, hasMore, isLoading, isLoadingMore, error, page]);
 
   // Load initial NFTs
   useEffect(() => {
@@ -307,13 +238,6 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
         [traitType]: newValues
       };
     });
-  };
-
-  // Load more NFTs
-  const loadMore = () => {
-    if (!isLoadingMore && hasMore) {
-      fetchNFTs(page + 1, true);
-    }
   };
 
   const getImageUrl = (nft: NFT) => {
@@ -454,22 +378,45 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
               </div>
 
               {/* Load More Button */}
-              {hasMore && (
+              {!isLoading && !error && hasMore && (
                 <div className="flex justify-center mt-8">
                   <button
-                    onClick={loadMore}
+                    onClick={() => {
+                      const nextPage = page + 1;
+                      setPage(nextPage);
+                      fetchNFTs(nextPage, true);
+                    }}
                     disabled={isLoadingMore}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoadingMore ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Loading...</span>
+                        <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                        Loading...
                       </>
                     ) : (
-                      <span>Load More</span>
+                      'Load More'
                     )}
                   </button>
+                </div>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <div className="text-center text-red-500 mt-4">
+                  {error}
+                  {hasMore && (
+                    <button
+                      onClick={() => {
+                        const nextPage = page + 1;
+                        setPage(nextPage);
+                        fetchNFTs(nextPage, true);
+                      }}
+                      className="ml-2 text-sm underline hover:no-underline"
+                    >
+                      Try Again
+                    </button>
+                  )}
                 </div>
               )}
             </>
