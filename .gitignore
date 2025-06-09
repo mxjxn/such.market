@@ -87,3 +87,7 @@ logs
 # Scripts that might contain secrets
 /scripts/vercel-env.js
 /scripts/*.env.js
+
+# Database cleanup scripts
+/scripts/db/clear-tables.ts
+/scripts/db/clear-db.sh

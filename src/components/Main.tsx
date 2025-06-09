@@ -27,6 +27,7 @@ import { useFrame } from "~/components/providers/FrameProvider";
 import { SearchBar } from "./SearchBar";
 
 export default function Main() {
+  console.log('🎯 Main component mounting');
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
@@ -37,10 +38,16 @@ export default function Main() {
 
   // Notify Farcaster that the app is ready
   useEffect(() => {
+    console.log('🔄 Main component mounted, checking frame context:', {
+      isSDKLoaded: frameContext.isSDKLoaded,
+      hasContext: !!frameContext.context,
+      isConnected,
+      chainId
+    });
     if (frameContext.isSDKLoaded) {
       sdk.actions.ready();
     }
-  }, [frameContext.isSDKLoaded]);
+  }, [frameContext.isSDKLoaded, frameContext.context, isConnected, chainId]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white p-4">

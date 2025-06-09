@@ -1,4 +1,5 @@
-import { ethers } from 'ethers';
+import { createPublicClient, http, parseAbiItem, type Address } from 'viem';
+import { base } from 'viem/chains';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -12,16 +13,16 @@ const TOKEN_ID = '1';
 
 // Separate ABIs to avoid ambiguity
 const ERC1155_URI_WITH_ID_ABI = [
-  'function uri(uint256 tokenId) view returns (string)',
-];
+  parseAbiItem('function uri(uint256 tokenId) view returns (string)'),
+] as const;
 
 const ERC1155_URI_BASE_ABI = [
-  'function uri() view returns (string)',
-];
+  parseAbiItem('function uri() view returns (string)'),
+] as const;
 
 const ERC1155_TOKEN_URI_ABI = [
-  'function tokenURI(uint256 tokenId) view returns (string)',
-];
+  parseAbiItem('function tokenURI(uint256 tokenId) view returns (string)'),
+] as const;
 
 async function testContract() {
   console.log('🔍 Testing contract calls...');
@@ -36,26 +37,37 @@ async function testContract() {
     try {
       console.log('\n📡 Testing Alchemy RPC...');
       const alchemyUrl = `https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
-      const provider = new ethers.JsonRpcProvider(alchemyUrl);
+      const client = createPublicClient({
+        chain: base,
+        transport: http(alchemyUrl),
+      });
       
       // Test basic RPC connection
-      const network = await provider.getNetwork();
+      const network = await client.getChainId();
       console.log('Network:', network);
       
       // Test each ABI separately
       console.log('\nTesting uri(uint256)...');
-      const contractWithId = new ethers.Contract(CONTRACT_ADDRESS, ERC1155_URI_WITH_ID_ABI, provider);
       try {
-        const uri = await contractWithId.uri(TOKEN_ID);
+        const uri = await client.readContract({
+          address: CONTRACT_ADDRESS as Address,
+          abi: ERC1155_URI_WITH_ID_ABI,
+          functionName: 'uri',
+          args: [BigInt(TOKEN_ID)],
+        });
         console.log('URI with ID:', uri);
       } catch (error) {
         console.log('uri(uint256) failed:', error instanceof Error ? error.message : 'Unknown error');
       }
 
       console.log('\nTesting uri()...');
-      const contractBase = new ethers.Contract(CONTRACT_ADDRESS, ERC1155_URI_BASE_ABI, provider);
       try {
-        const baseUri = await contractBase.uri();
+        const baseUri = await client.readContract({
+          address: CONTRACT_ADDRESS as Address,
+          abi: ERC1155_URI_BASE_ABI,
+          functionName: 'uri',
+          args: [],
+        });
         console.log('Base URI:', baseUri);
         if (baseUri) {
           const fullUri = baseUri.replace('{id}', TOKEN_ID);
@@ -66,9 +78,13 @@ async function testContract() {
       }
 
       console.log('\nTesting tokenURI(uint256)...');
-      const contractTokenUri = new ethers.Contract(CONTRACT_ADDRESS, ERC1155_TOKEN_URI_ABI, provider);
       try {
-        const tokenUri = await contractTokenUri.tokenURI(TOKEN_ID);
+        const tokenUri = await client.readContract({
+          address: CONTRACT_ADDRESS as Address,
+          abi: ERC1155_TOKEN_URI_ABI,
+          functionName: 'tokenURI',
+          args: [BigInt(TOKEN_ID)],
+        });
         console.log('Token URI:', tokenUri);
       } catch (error) {
         console.log('tokenURI(uint256) failed:', error instanceof Error ? error.message : 'Unknown error');
@@ -85,26 +101,37 @@ async function testContract() {
   if (process.env.BASE_MAINNET_RPC) {
     try {
       console.log('\n📡 Testing Base RPC...');
-      const provider = new ethers.JsonRpcProvider(process.env.BASE_MAINNET_RPC);
+      const client = createPublicClient({
+        chain: base,
+        transport: http(process.env.BASE_MAINNET_RPC),
+      });
       
       // Test basic RPC connection
-      const network = await provider.getNetwork();
+      const network = await client.getChainId();
       console.log('Network:', network);
       
       // Test each ABI separately
       console.log('\nTesting uri(uint256)...');
-      const contractWithId = new ethers.Contract(CONTRACT_ADDRESS, ERC1155_URI_WITH_ID_ABI, provider);
       try {
-        const uri = await contractWithId.uri(TOKEN_ID);
+        const uri = await client.readContract({
+          address: CONTRACT_ADDRESS as Address,
+          abi: ERC1155_URI_WITH_ID_ABI,
+          functionName: 'uri',
+          args: [BigInt(TOKEN_ID)],
+        });
         console.log('URI with ID:', uri);
       } catch (error) {
         console.log('uri(uint256) failed:', error instanceof Error ? error.message : 'Unknown error');
       }
 
       console.log('\nTesting uri()...');
-      const contractBase = new ethers.Contract(CONTRACT_ADDRESS, ERC1155_URI_BASE_ABI, provider);
       try {
-        const baseUri = await contractBase.uri();
+        const baseUri = await client.readContract({
+          address: CONTRACT_ADDRESS as Address,
+          abi: ERC1155_URI_BASE_ABI,
+          functionName: 'uri',
+          args: [],
+        });
         console.log('Base URI:', baseUri);
         if (baseUri) {
           const fullUri = baseUri.replace('{id}', TOKEN_ID);
@@ -115,9 +142,13 @@ async function testContract() {
       }
 
       console.log('\nTesting tokenURI(uint256)...');
-      const contractTokenUri = new ethers.Contract(CONTRACT_ADDRESS, ERC1155_TOKEN_URI_ABI, provider);
       try {
-        const tokenUri = await contractTokenUri.tokenURI(TOKEN_ID);
+        const tokenUri = await client.readContract({
+          address: CONTRACT_ADDRESS as Address,
+          abi: ERC1155_TOKEN_URI_ABI,
+          functionName: 'tokenURI',
+          args: [BigInt(TOKEN_ID)],
+        });
         console.log('Token URI:', tokenUri);
       } catch (error) {
         console.log('tokenURI(uint256) failed:', error instanceof Error ? error.message : 'Unknown error');

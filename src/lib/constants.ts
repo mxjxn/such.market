@@ -1,5 +1,5 @@
 export const APP_URL = process.env.NEXT_PUBLIC_URL!;
-export const APP_NAME = process.env.NEXT_PUBLIC_FRAME_NAME;
+export const APP_NAME = process.env.NEXT_PUBLIC_FRAME_NAME || 'cryptoart-mini-app';
 export const APP_DESCRIPTION = process.env.NEXT_PUBLIC_FRAME_DESCRIPTION;
 export const APP_PRIMARY_CATEGORY = process.env.NEXT_PUBLIC_FRAME_PRIMARY_CATEGORY;
 export const APP_TAGS = process.env.NEXT_PUBLIC_FRAME_TAGS?.split(',');

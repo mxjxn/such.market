@@ -6,16 +6,13 @@ import { Loader2, Grid, List } from 'lucide-react';
 import { TraitFilter } from './TraitFilter';
 
 interface NFT {
-  tokenId: string;
-  title: string;
+  id: string;
+  collection_id: string;
+  token_id: string;
+  title: string | null;
   description: string | null;
-  media: Array<{
-    gateway: string;
-    thumbnail: string;
-    raw: string;
-    format: string;
-    bytes: number;
-  }>;
+  image_url: string | null;
+  thumbnail_url: string | null;
   metadata: {
     name: string;
     description: string;
@@ -25,6 +22,21 @@ interface NFT {
       value: string;
     }>;
   } | null;
+  attributes: Array<{
+    trait_type: string;
+    value: string;
+  }> | null;
+  media: Array<{
+    gateway: string;
+    thumbnail: string;
+    raw: string;
+    format: string;
+    bytes: number;
+  }> | null;
+  owner_address: string | null;
+  last_owner_check_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface NFTGridProps {
@@ -105,11 +117,17 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
       url.searchParams.set('page', pageNum.toString());
       url.searchParams.set('pageSize', pageSize.toString());
 
-      console.log('🔄 Fetching NFTs:', {
+      console.log('🔄 Starting NFT fetch request:', {
         url: url.toString(),
+        method: 'GET',
+        headers: {
+          accept: 'application/json',
+          cache: isLoadMore ? 'no-store' : 'force-cache'
+        },
         page: pageNum,
         currentNFTCount: nfts.length,
         isLoadMore,
+        timestamp: new Date().toISOString()
       });
 
       if (isLoadMore) {
@@ -118,52 +136,108 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
         setIsLoading(true);
       }
 
+      console.log('📡 Initiating fetch request...');
       const response = await fetch(url, {
         cache: isLoadMore ? 'no-store' : 'force-cache',
+      });
+      console.log('📥 Received response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        ok: response.ok,
+        type: response.type,
+        url: response.url
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('API Error Response:', {
+        console.error('❌ API Error Details:', {
           status: response.status,
           statusText: response.statusText,
-          body: errorText
+          headers: Object.fromEntries(response.headers.entries()),
+          body: errorText,
+          url: response.url,
+          timestamp: new Date().toISOString()
         });
-        throw new Error(`Failed to fetch NFTs: ${response.status} ${response.statusText}`);
+        
+        // Handle 404 as a special case - collection not found
+        if (response.status === 404) {
+          setError('Collection not found. It may be initializing, please try again in a moment.');
+          setNfts([]);
+          setHasMore(false);
+          return;
+        }
+        
+        throw new Error(`Failed to fetch NFTs: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
+      console.log('📦 Attempting to parse response as JSON...');
       const data = await response.json();
+      console.log('✅ Successfully parsed JSON response:', {
+        hasData: !!data,
+        dataType: typeof data,
+        keys: data ? Object.keys(data) : null,
+        timestamp: new Date().toISOString()
+      });
       
       if (!data || typeof data !== 'object') {
-        console.error('Invalid API Response:', data);
+        console.error('❌ Invalid API Response Structure:', {
+          received: data,
+          type: typeof data,
+          timestamp: new Date().toISOString()
+        });
         throw new Error('Invalid response format from server');
       }
 
       const { nfts: fetchedNFTs, total, hasMore: hasMoreNFTs } = data;
       
       if (!Array.isArray(fetchedNFTs)) {
-        console.error('Invalid NFT data in response:', {
+        console.error('❌ Invalid NFT data structure:', {
           received: fetchedNFTs,
           type: typeof fetchedNFTs,
-          fullResponse: data
+          fullResponse: data,
+          timestamp: new Date().toISOString()
         });
         throw new Error('Invalid NFT data received from server');
       }
 
-      console.log('📦 Received NFT data:', {
+      console.log('🎉 Successfully processed NFT data:', {
         newNFTsCount: fetchedNFTs.length,
         total,
         hasMore: hasMoreNFTs,
         isLoadMore,
         firstNFT: fetchedNFTs[0] ? {
-          tokenId: fetchedNFTs[0].tokenId,
+          tokenId: fetchedNFTs[0].token_id,
           hasMetadata: !!fetchedNFTs[0].metadata,
-          hasMedia: !!fetchedNFTs[0].media?.length
-        } : null
+          hasMedia: !!fetchedNFTs[0].media?.length,
+          title: fetchedNFTs[0].title,
+          imageUrl: fetchedNFTs[0].image_url
+        } : null,
+        timestamp: new Date().toISOString()
       });
 
       if (isLoadMore) {
-        setNfts(prev => [...prev, ...fetchedNFTs]);
+        // Create a Map of existing NFTs using token_id as key
+        const existingNFTsMap = new Map(nfts.map(nft => [nft.token_id, nft]));
+        
+        // Add new NFTs to the map, overwriting any duplicates
+        fetchedNFTs.forEach(nft => {
+          if (nft.token_id) {
+            existingNFTsMap.set(nft.token_id, nft);
+          }
+        });
+        
+        // Convert map back to array
+        const uniqueNFTs = Array.from(existingNFTsMap.values());
+        
+        // Sort by token_id to maintain consistent order
+        uniqueNFTs.sort((a, b) => {
+          const aId = parseInt(a.token_id) || 0;
+          const bId = parseInt(b.token_id) || 0;
+          return aId - bId;
+        });
+        
+        setNfts(uniqueNFTs);
       } else {
         setNfts(fetchedNFTs);
       }
@@ -208,12 +282,12 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
     }
 
     const filtered = nfts.filter(nft => {
-      if (!nft?.metadata?.attributes) return false;
+      if (!nft?.attributes) return false;
       
       // Check if NFT has all selected traits
       return Object.entries(selectedTraits).every(([traitType, values]) => {
         if (values.length === 0) return true; // No values selected for this trait type
-        const attribute = nft.metadata?.attributes?.find(attr => attr.trait_type === traitType);
+        const attribute = nft.attributes?.find(attr => attr.trait_type === traitType);
         return attribute && values.includes(attribute.value);
       });
     });
@@ -244,12 +318,12 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
 
   const getImageUrl = (nft: NFT) => {
     // Try to get image from metadata first
-    if (nft.metadata?.image) {
-      const url = convertIpfsToHttps(nft.metadata.image);
+    if (nft.image_url) {
+      const url = convertIpfsToHttps(nft.image_url);
       console.log('🔍 Image URL from metadata:', {
-        original: nft.metadata.image,
+        original: nft.image_url,
         converted: url,
-        tokenId: nft.tokenId
+        tokenId: nft.token_id
       });
       return url;
     }
@@ -259,27 +333,27 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
       console.log('🔍 Image URL from media gateway:', {
         original: nft.media[0].gateway,
         converted: url,
-        tokenId: nft.tokenId
+        tokenId: nft.token_id
       });
       return url;
     }
     // Finally try thumbnail
-    if (nft.media?.[0]?.thumbnail) {
-      const url = convertIpfsToHttps(nft.media[0].thumbnail);
+    if (nft.thumbnail_url) {
+      const url = convertIpfsToHttps(nft.thumbnail_url);
       console.log('🔍 Image URL from media thumbnail:', {
-        original: nft.media[0].thumbnail,
+        original: nft.thumbnail_url,
         converted: url,
-        tokenId: nft.tokenId
+        tokenId: nft.token_id
       });
       return url;
     }
     console.log('⚠️ No image URL found for NFT:', {
-      tokenId: nft.tokenId,
+      tokenId: nft.token_id,
       hasMetadata: !!nft.metadata,
       hasMedia: !!nft.media?.length,
-      metadataImage: nft.metadata?.image,
+      metadataImage: nft.image_url,
       mediaGateway: nft.media?.[0]?.gateway,
-      mediaThumbnail: nft.media?.[0]?.thumbnail
+      mediaThumbnail: nft.thumbnail_url
     });
     return null;
   };
@@ -304,8 +378,8 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
         {Array.isArray(nfts) && nfts.length > 0 && (
           <TraitFilter
             traits={nfts
-              .filter(nft => Array.isArray(nft?.metadata?.attributes))
-              .flatMap(nft => nft.metadata?.attributes || [])}
+              .filter(nft => Array.isArray(nft?.attributes))
+              .flatMap(nft => nft.attributes || [])}
             selectedTraits={selectedTraits}
             onTraitChange={handleTraitChange}
           />
@@ -326,10 +400,10 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
           ) : (
             <>
               <div className={view === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' : 'space-y-4'}>
-                {filteredNfts.map((nft) => {
+                {filteredNfts.map((nft, index) => {
                   if (!nft) return null;
                   const imageUrl = getImageUrl(nft);
-                  const uniqueKey = `${contractAddress}-${nft.tokenId}`;
+                  const uniqueKey = `${contractAddress}-${nft.token_id || `index-${index}`}`;
                   const isIpfsUrl = imageUrl?.includes('ipfs') ?? false;
                   
                   return (
@@ -341,7 +415,7 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
                         {imageUrl ? (
                           <Image
                             src={imageUrl}
-                            alt={nft.title || `NFT #${nft.tokenId}`}
+                            alt={nft.title || `NFT #${nft.token_id}`}
                             fill
                             className="object-cover"
                             unoptimized={isIpfsUrl}
@@ -354,11 +428,11 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
                       </div>
                       <div className="p-4">
                         <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                          {nft.title || `NFT #${nft.tokenId}`}
+                          {nft.title || `NFT #${nft.token_id}`}
                         </h3>
-                        {nft.metadata?.attributes && nft.metadata.attributes.length > 0 && (
+                        {nft.attributes && nft.attributes.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1">
-                            {nft.metadata.attributes.slice(0, 2).map((attr, index) => (
+                            {nft.attributes.slice(0, 2).map((attr, index) => (
                               <span
                                 key={index}
                                 className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
@@ -366,9 +440,9 @@ export default function NFTGrid({ contractAddress }: NFTGridProps) {
                                 {attr.trait_type}: {attr.value}
                               </span>
                             ))}
-                            {nft.metadata.attributes.length > 2 && (
+                            {nft.attributes.length > 2 && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
-                                +{nft.metadata.attributes.length - 2} more
+                                +{nft.attributes.length - 2} more
                               </span>
                             )}
                           </div>

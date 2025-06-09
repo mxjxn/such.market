@@ -16,7 +16,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {  
+  console.log('🎨 Rendering root layout');
   const session = await getSession()
+  console.log('🔐 Session status:', session ? 'Authenticated' : 'Not authenticated');
 
   return (
     <html lang="en">

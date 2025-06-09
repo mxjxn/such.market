@@ -19,6 +19,7 @@ export function SearchBar() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   // Fetch suggestions when query changes
@@ -26,11 +27,13 @@ export function SearchBar() {
     const fetchSuggestions = async () => {
       if (!query.trim()) {
         setSuggestions([]);
+        setShowSuggestions(false);
         return;
       }
 
       setIsLoadingSuggestions(true);
       try {
+        console.log('🔍 Fetching suggestions for:', query.trim());
         const response = await fetch(`/api/autocomplete?prefix=${encodeURIComponent(query.trim())}`);
         const data = await response.json();
 
@@ -38,24 +41,28 @@ export function SearchBar() {
           throw new Error(data.error || 'Failed to fetch suggestions');
         }
 
+        console.log('✅ Got suggestions:', data.suggestions);
         setSuggestions(data.suggestions);
         setShowSuggestions(true);
       } catch (err) {
-        console.error('Error fetching suggestions:', err);
+        console.error('❌ Error fetching suggestions:', err);
         setSuggestions([]);
+        setShowSuggestions(false);
       } finally {
         setIsLoadingSuggestions(false);
       }
     };
 
-    const debounceTimer = setTimeout(fetchSuggestions, 300);
+    // Reduce debounce time to 150ms for more responsive feel
+    const debounceTimer = setTimeout(fetchSuggestions, 150);
     return () => clearTimeout(debounceTimer);
   }, [query]);
 
   // Handle clicks outside suggestions
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node) &&
+          inputRef.current && !inputRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
       }
     };
@@ -127,23 +134,33 @@ export function SearchBar() {
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newQuery = e.target.value;
+    setQuery(newQuery);
+    setError(null);
+    setSelectedIndex(-1);
+    
+    // Show suggestions immediately if there's a query
+    if (newQuery.trim()) {
+      setShowSuggestions(true);
+    }
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto">
       <form onSubmit={handleSearch} className="relative">
         <div className="relative flex items-center">
           <input
+            ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setError(null);
-              setSelectedIndex(-1);
-            }}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onFocus={() => query.trim() && setShowSuggestions(true)}
             placeholder="Search by contract address, ENS name, or collection name..."
             className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white text-gray-900 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
             disabled={isLoading}
+            autoComplete="off"
           />
           <div className="absolute right-2 flex items-center space-x-2">
             {isLoadingSuggestions && (

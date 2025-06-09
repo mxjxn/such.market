@@ -5,84 +5,34 @@ import { useParams } from 'next/navigation';
 import { Loader2, RefreshCw } from 'lucide-react';
 import NFTGrid from '../../../components/NFTGrid';
 import { SearchBar } from '../../../components/SearchBar';
+import useSWR from 'swr';
 
-interface CollectionData {
-  name: string | null;
-  symbol: string | null;
-  totalSupply: string | null;
-  contractType: 'ERC721' | 'ERC1155' | 'UNKNOWN';
-  error?: string;
+// Custom error type for API errors
+interface APIError extends Error {
+  info?: {
+    error?: string;
+    [key: string]: unknown;
+  };
+  status?: number;
 }
 
 // Move RefreshButton outside and memoize it
-const RefreshButton = memo(function RefreshButton({ contractAddress }: { contractAddress: string }) {
+const RefreshButton = memo(function RefreshButton({ 
+  contractAddress,
+  refreshStatus,
+  onRefresh
+}: { 
+  contractAddress: string;
+  refreshStatus: { canRefresh: boolean; nextRefreshTime: string | null; remainingTime: number } | null;
+  onRefresh: () => Promise<void>;
+}) {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshStatus, setRefreshStatus] = useState<{
-    canRefresh: boolean;
-    nextRefreshTime: string | null;
-    remainingTime: number;
-  } | null>(null);
-
-  // Only check refresh status when component mounts
-  useEffect(() => {
-    let mounted = true;
-    async function checkRefreshStatus() {
-      try {
-        const response = await fetch(`/api/collection/${contractAddress}/refresh`);
-        if (response.ok && mounted) {
-          const data = await response.json();
-          setRefreshStatus(data);
-        }
-      } catch (error) {
-        console.error('Error checking refresh status:', error);
-      }
-    }
-
-    checkRefreshStatus();
-    return () => {
-      mounted = false;
-    };
-  }, [contractAddress]);
 
   const handleRefresh = async () => {
     if (!refreshStatus?.canRefresh || isRefreshing) return;
-
     setIsRefreshing(true);
     try {
-      // Check refresh status before attempting refresh
-      const statusResponse = await fetch(`/api/collection/${contractAddress}/refresh`);
-      const statusData = await statusResponse.json();
-      
-      if (!statusData.canRefresh) {
-        setRefreshStatus(statusData);
-        return;
-      }
-
-      const response = await fetch(`/api/collection/${contractAddress}/refresh`, {
-        method: 'POST',
-      });
-
-      const data = await response.json();
-      
-      if (response.ok) {
-        // Update status immediately with the new lock time
-        setRefreshStatus({
-          canRefresh: false,
-          nextRefreshTime: data.nextRefreshTime,
-          remainingTime: Math.ceil((new Date(data.nextRefreshTime).getTime() - Date.now()) / 60000),
-        });
-        // Refresh the page to show new data
-        window.location.reload();
-      } else {
-        // Update status with error message from server
-        setRefreshStatus({
-          canRefresh: false,
-          nextRefreshTime: data.nextRefreshTime,
-          remainingTime: Math.ceil((new Date(data.nextRefreshTime).getTime() - Date.now()) / 60000),
-        });
-      }
-    } catch (error) {
-      console.error('Error refreshing collection:', error);
+      await onRefresh();
     } finally {
       setIsRefreshing(false);
     }
@@ -91,106 +41,148 @@ const RefreshButton = memo(function RefreshButton({ contractAddress }: { contrac
   if (!refreshStatus) return null;
 
   return (
-    <div className="flex items-center gap-2">
-      <button
-        onClick={handleRefresh}
-        disabled={!refreshStatus.canRefresh || isRefreshing}
-        className={`
-          flex items-center gap-2 px-4 py-2 rounded-lg
-          ${refreshStatus.canRefresh && !isRefreshing
-            ? 'bg-blue-500 hover:bg-blue-600 text-white'
-            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-          }
-          transition-colors duration-200
-        `}
-      >
-        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-        {isRefreshing ? 'Refreshing...' : 'Refresh Collection'}
-      </button>
-      {!refreshStatus.canRefresh && refreshStatus.remainingTime > 0 && (
-        <span className="text-sm text-gray-500">
-          Next refresh in {refreshStatus.remainingTime} minutes
-        </span>
+    <button
+      onClick={handleRefresh}
+      disabled={!refreshStatus.canRefresh || isRefreshing}
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+        refreshStatus.canRefresh && !isRefreshing
+          ? 'bg-blue-500 hover:bg-blue-600 text-white'
+          : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+      }`}
+    >
+      {isRefreshing ? (
+        <Loader2 className="w-4 h-4 animate-spin" />
+      ) : (
+        <RefreshCw className="w-4 h-4" />
       )}
-    </div>
+      {refreshStatus.canRefresh
+        ? 'Refresh Collection'
+        : `Next refresh in ${Math.ceil(refreshStatus.remainingTime)}m`}
+    </button>
   );
 });
 
+// Fetcher functions for SWR
+const fetchCollection = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const error = new Error('Failed to fetch collection') as APIError;
+    error.info = await res.json();
+    error.status = res.status;
+    throw error;
+  }
+  return res.json();
+};
+
+const fetchRefreshStatus = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const error = new Error('Failed to fetch refresh status') as APIError;
+    error.info = await res.json();
+    error.status = res.status;
+    throw error;
+  }
+  return res.json();
+};
+
 export default function CollectionPage() {
   const params = useParams();
-  const [collectionData, setCollectionData] = useState<CollectionData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const contractAddress = params.contractAddress as string;
 
-  useEffect(() => {
-    async function fetchCollectionData() {
-      if (!params.contractAddress || typeof params.contractAddress !== 'string') {
-        setError('Invalid contract address');
-        setIsLoading(false);
-        return;
-      }
+  // State to track if we're waiting for refresh
+  const [isPopulating, setIsPopulating] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
-      try {
-        // Fetch metadata from our API route instead of Alchemy directly
-        const response = await fetch(`/api/collection/${params.contractAddress}/metadata`);
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch collection data');
-        }
-        
-        const metadata = await response.json();
-        
-        // Store collection name in Redis if we have one and it's not already stored
-        if (metadata.name) {
-          try {
-            // First check if collection exists
-            const checkResponse = await fetch('/api/collection-exists', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                address: params.contractAddress.toLowerCase(),
-              }),
-            });
-            
-            const { exists } = await checkResponse.json();
-            
-            if (!exists) {
-              const storeResponse = await fetch('/api/store-collection', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  name: metadata.name,
-                  address: params.contractAddress.toLowerCase(),
-                }),
-              });
-              
-              if (!storeResponse.ok) {
-                const errorData = await storeResponse.json().catch(() => ({}));
-                console.warn('Failed to store collection name:', errorData.error || storeResponse.statusText);
-              }
-            }
-          } catch (err) {
-            console.warn('Error checking/storing collection name:', err);
-          }
-        }
-
-        setCollectionData(metadata);
-      } catch (err) {
-        console.error('Error fetching collection data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load collection data. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
+  // Fetch collection data with SWR
+  const { 
+    data: collectionData, 
+    error: collectionError,
+    isLoading: isCollectionLoading,
+    mutate: mutateCollection
+  } = useSWR(
+    contractAddress ? `/api/collection/${contractAddress}` : null,
+    fetchCollection,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false
     }
+  );
 
-    fetchCollectionData();
-  }, [params.contractAddress]);
+  // Fetch refresh status with SWR
+  const { 
+    data: refreshStatus,
+    mutate: mutateRefreshStatus
+  } = useSWR(
+    contractAddress ? `/api/collection/${contractAddress}/refresh` : null,
+    fetchRefreshStatus,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 60000 // Check refresh status every minute
+    }
+  );
 
-  if (isLoading) {
+  // Polling interval for checking if collection is available
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (isPopulating) {
+      interval = setInterval(() => {
+        mutateCollection();
+      }, 3000); // Poll every 3 seconds
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPopulating, mutateCollection]);
+
+  // If collectionError is 404, trigger refresh
+  useEffect(() => {
+    if (collectionError && collectionError.status === 404 && !isPopulating) {
+      setIsPopulating(true);
+      setRefreshError(null);
+      fetch(`/api/collection/${contractAddress}/refresh`, { method: 'POST' })
+        .then(async (res) => {
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || 'Failed to refresh collection');
+          }
+        })
+        .catch((err) => {
+          setRefreshError(err.message || 'Failed to refresh collection');
+        });
+    }
+    // If collectionData becomes available, stop populating
+    if (collectionData && isPopulating) {
+      setIsPopulating(false);
+    }
+  }, [collectionError, isPopulating, contractAddress, collectionData]);
+
+  const handleRefresh = async () => {
+    if (!refreshStatus?.canRefresh) return;
+
+    try {
+      const response = await fetch(`/api/collection/${contractAddress}/refresh`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to refresh collection');
+      }
+
+      // Refresh both collection data and refresh status
+      await Promise.all([
+        mutateCollection(),
+        mutateRefreshStatus()
+      ]);
+
+      // Refresh the page to show new data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error refreshing collection:', error);
+    }
+  };
+
+  if (isCollectionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
@@ -198,12 +190,32 @@ export default function CollectionPage() {
     );
   }
 
-  if (error) {
+  // Show loading state if we're populating the collection
+  if (isPopulating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Populating Collection...</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-2">
+            We&apos;re loading this collection for the first time. This may take a few moments.
+          </p>
+          {refreshError && (
+            <p className="text-red-500">{refreshError}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (collectionError) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
-          <p className="text-gray-600 dark:text-gray-400">{error}</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            {collectionError.info?.error || collectionError.message}
+          </p>
         </div>
       </div>
     );
@@ -236,10 +248,14 @@ export default function CollectionPage() {
                 {collectionData.name || 'Unnamed Collection'}
               </h1>
               <p className="text-gray-600 dark:text-gray-400">
-                Contract: {params.contractAddress}
+                Contract: {contractAddress}
               </p>
             </div>
-            <RefreshButton contractAddress={params.contractAddress as string} />
+            <RefreshButton 
+              contractAddress={contractAddress}
+              refreshStatus={refreshStatus}
+              onRefresh={handleRefresh}
+            />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -266,7 +282,7 @@ export default function CollectionPage() {
 
         {/* NFT Grid */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <NFTGrid contractAddress={params.contractAddress as string} />
+          <NFTGrid contractAddress={contractAddress} />
         </div>
       </div>
     </div>

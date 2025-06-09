@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis';
-import type { Database } from '~/db/types/database.types';
+import type { Database } from '@/db/types/database.types';
 import { APP_NAME } from '~/lib/constants';
 
 // Types from database
@@ -44,27 +44,81 @@ const CACHE_KEYS = {
 
 // Helper function to get cached data
 async function getCached<T>(key: string, ttl: number): Promise<T | null> {
-  if (redis) {
-    const cached = await redis.get<CachedData<T>>(key);
-    if (cached && Date.now() - cached.timestamp < ttl * 1000) {
-      return cached.data;
-    }
+  if (!key) {
+    console.warn('⚠️ Attempted to get cached data with empty key');
     return null;
+  }
+
+  if (redis) {
+    try {
+      const cached = await redis.get<CachedData<T>>(key);
+      if (cached && Date.now() - cached.timestamp < ttl * 1000) {
+        console.log('📦 [Cache] Redis hit:', {
+          key,
+          timestamp: new Date(cached.timestamp).toISOString(),
+          age: Math.round((Date.now() - cached.timestamp) / 1000),
+          ttl,
+          data: cached.data,
+        });
+        return cached.data;
+      }
+      console.log('🔄 [Cache] Redis miss:', {
+        key,
+        hasData: !!cached,
+        timestamp: cached ? new Date(cached.timestamp).toISOString() : null,
+        age: cached ? Math.round((Date.now() - cached.timestamp) / 1000) : null,
+        ttl,
+      });
+      return null;
+    } catch (error) {
+      console.error('❌ Redis cache get error:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        key,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      return null;
+    }
   }
   
   const cached = localStore.get(key) as CachedData<T> | undefined;
   if (cached && Date.now() - cached.timestamp < ttl * 1000) {
+    console.log('📦 [Cache] Local hit:', {
+      key,
+      timestamp: new Date(cached.timestamp).toISOString(),
+      age: Math.round((Date.now() - cached.timestamp) / 1000),
+      ttl,
+      data: cached.data,
+    });
     return cached.data;
   }
+  console.log('🔄 [Cache] Local miss:', {
+    key,
+    hasData: !!cached,
+    timestamp: cached ? new Date(cached.timestamp).toISOString() : null,
+    age: cached ? Math.round((Date.now() - cached.timestamp) / 1000) : null,
+    ttl,
+  });
   return null;
 }
 
 // Helper function to set cached data
 async function setCached<T>(key: string, data: T, ttl: number): Promise<void> {
+  if (!key) {
+    console.warn('⚠️ Attempted to set cached data with empty key');
+    return;
+  }
+
   const cacheData = { data, timestamp: Date.now() };
   
   if (redis) {
-    await redis.set(key, cacheData, { ex: ttl });
+    try {
+      await redis.set(key, cacheData, { ex: ttl });
+    } catch (error) {
+      console.error('❌ Redis cache set error:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        key,
+      });
+    }
   } else {
     localStore.set(key, cacheData);
   }
@@ -89,10 +143,29 @@ async function invalidateCache(pattern: string): Promise<void> {
 
 // Collection cache functions
 export async function getCachedCollection(address: string): Promise<Collection | null> {
-  return getCached<Collection>(
+  console.log('🔍 [Cache] Getting collection:', {
+    address,
+    key: CACHE_KEYS.collection(address),
+    ttl: CACHE_DURATIONS.COLLECTION,
+  });
+  const result = await getCached<Collection>(
     CACHE_KEYS.collection(address),
     CACHE_DURATIONS.COLLECTION
   );
+  if (result) {
+    console.log('✅ [Cache] Collection data:', {
+      id: result.id,
+      name: result.name,
+      contract_address: result.contract_address,
+      token_type: result.token_type,
+      total_supply: result.total_supply,
+      verified: result.verified,
+      last_refresh_at: result.last_refresh_at,
+      created_at: result.created_at,
+      updated_at: result.updated_at,
+    });
+  }
+  return result;
 }
 
 export async function setCachedCollection(address: string, collection: Collection): Promise<void> {

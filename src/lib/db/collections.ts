@@ -1,20 +1,43 @@
+import { Alchemy, Network } from 'alchemy-sdk';
 import { getSupabaseClient } from '~/lib/supabase';
-import type { Database } from '~/db/types/database.types';
+import { retryContractCall, type PublicClient, type HttpTransport, type Chain, type Abi, getProviderWithRetry } from '../nft-metadata';
+import type { Database } from '@/db/types/database.types';
+import { getCachedCollection, setCachedCollection } from './cache';
 import {
-  getCachedCollection,
-  setCachedCollection,
   getCachedCollectionNFTs,
   setCachedCollectionNFTs,
   invalidateCollectionCache,
 } from './cache';
+import { createPublicClient, http, type Address, parseAbiItem } from 'viem';
+import { base } from 'viem/chains';
 
+// Initialize Alchemy SDK
+const alchemy = new Alchemy({
+  apiKey: process.env.ALCHEMY_API_KEY,
+  network: Network.BASE_MAINNET,
+});
+
+// Initialize Supabase client
 const supabase = getSupabaseClient();
+
+// Initialize viem client
+const client = createPublicClient({
+  chain: base,
+  transport: http(process.env.BASE_MAINNET_RPC!),
+}) as PublicClient<HttpTransport, Chain>;
+
+// Add ERC721 ABI items for metadata fetching
+const ERC721_METADATA_ABI: Abi = [
+  parseAbiItem('function name() view returns (string)'),
+  parseAbiItem('function symbol() view returns (string)'),
+  parseAbiItem('function totalSupply() view returns (uint256)'),
+];
 
 type Collection = Database['public']['Tables']['collections']['Row'];
 type NFT = Database['public']['Tables']['nfts']['Row'];
 
 // Type for NFT metadata
-type NFTMetadata = {
+export type NFTMetadata = {
   tokenId: string;
   title?: string | null;
   description?: string | null;
@@ -31,13 +54,6 @@ type NFTMetadata = {
   }>;
 };
 
-// Type for Alchemy metadata
-type AlchemyMetadata = {
-  name?: string;
-  tokenType?: 'ERC721' | 'ERC1155';
-  totalSupply?: string | number;
-};
-
 export async function getCollectionByAddress(contractAddress: string): Promise<Collection | null> {
   // Try cache first
   const cached = await getCachedCollection(contractAddress);
@@ -46,11 +62,10 @@ export async function getCollectionByAddress(contractAddress: string): Promise<C
     return cached;
   }
 
-  console.log('🔄 [Cache] Collection miss:', contractAddress);
   // If not in cache, get from database
   const { data, error } = await supabase
     .from('collections')
-    .select('*')
+    .select()
     .eq('contract_address', contractAddress.toLowerCase())
     .single();
 
@@ -214,30 +229,65 @@ export async function updateCollectionRefreshTime(
   }
 }
 
-export async function upsertCollectionFromAlchemyMetadata(
-  contractAddress: string,
-  metadata: AlchemyMetadata
-): Promise<Collection> {
-  const { data, error } = await supabase
-    .from('collections')
-    .upsert({
-      contract_address: contractAddress.toLowerCase(),
-      name: metadata.name || 'Unknown Collection',
-      token_type: metadata.tokenType as 'ERC721' | 'ERC1155',
-      total_supply: metadata.totalSupply ? Number(metadata.totalSupply) : null,
-      verified: true,
-      last_refresh_at: new Date().toISOString(),
-    })
-    .select()
-    .single();
+export async function fetchAndStoreCollectionMetadata(contractAddress: string) {
+  console.log('🔄 Fetching collection metadata:', contractAddress);
+  
+  try {
+    // Try Alchemy first
+    const metadata = await alchemy.nft.getContractMetadata(contractAddress);
+    
+    // Insert/update collection in database
+    const { data: collectionData, error: collectionError } = await supabase
+      .from('collections')
+      .upsert({
+        contract_address: contractAddress.toLowerCase(),
+        name: metadata.name || null,
+        token_type: metadata.tokenType as 'ERC721' | 'ERC1155',
+        total_supply: metadata.totalSupply ? Number(metadata.totalSupply) : null,
+        verified: true,
+        last_refresh_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
-  if (error) throw error;
+    if (collectionError) {
+      console.error('❌ Error upserting collection:', collectionError);
+      throw collectionError;
+    }
 
-  // Cache the new/updated collection
-  if (data) {
-    console.log('💾 [Cache] Caching new/updated collection:', contractAddress);
-    await setCachedCollection(contractAddress, data);
+    if (!collectionData) {
+      throw new Error('Failed to upsert collection');
+    }
+
+    // Try to get total supply from contract if not available from Alchemy
+    if (!metadata.totalSupply && metadata.tokenType === 'ERC721') {
+      try {
+        const client = await getProviderWithRetry();
+        const address = contractAddress as Address;
+        const totalSupply = await retryContractCall<bigint>(
+          client,
+          address,
+          ERC721_METADATA_ABI,
+          'totalSupply',
+          []
+        );
+
+        if (totalSupply) {
+          await updateCollectionRefreshTime(collectionData.id, Number(totalSupply));
+        }
+      } catch (error) {
+        console.error('❌ Error fetching total supply:', error);
+        // Don't throw here - we still want to return the collection data
+      }
+    } else if (!metadata.totalSupply) {
+      // For ERC1155, we can't get total supply directly
+      // We'll just update the refresh time
+      await updateCollectionRefreshTime(collectionData.id);
+    }
+
+    return collectionData;
+  } catch (error) {
+    console.error('❌ Error in fetchAndStoreCollectionMetadata:', error);
+    throw error;
   }
-
-  return data;
 } 
