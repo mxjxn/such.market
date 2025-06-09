@@ -22,7 +22,7 @@
     "add-collection": "tsx scripts/inspect-redis.ts add",
     "add-known-collections": "tsx scripts/inspect-redis.ts add-known",
     "clear-collections": "tsx scripts/inspect-redis.ts clear",
-    "db:migrate": "SUPABASE_ENV=production pnpx supabase@latest db push",
+    "db:migrate": "SUPABASE_ENV=production pnpx supabase@latest db push --include-all",
     "db:seed": "tsx db/seed/seed.ts"
   },
   "dependencies": {

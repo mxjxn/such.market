@@ -4,7 +4,7 @@ import { getSession } from "~/auth"
 import "~/app/globals.css";
 import { Providers } from "~/app/providers";
 import { APP_NAME, APP_DESCRIPTION } from "~/lib/constants";
-import { HomeButton } from "~/components/HomeButton";
+import { TopNavigation } from "~/components/TopNavigation";
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -24,7 +24,7 @@ export default async function RootLayout({
     <html lang="en">
       <body>
         <Providers session={session}>
-          <HomeButton />
+          <TopNavigation />
           {children}
         </Providers>
       </body>

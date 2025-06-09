@@ -47,6 +47,56 @@ export interface Database {
           updated_at?: string
         }
       }
+      fc_users: {
+        Row: {
+          id: string
+          fid: number
+          username: string
+          display_name: string
+          pfp_url: string
+          custody_address: string
+          verified_addresses: Json
+          follower_count: number
+          following_count: number
+          power_badge: boolean
+          score: number
+          profile: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          fid: number
+          username: string
+          display_name: string
+          pfp_url: string
+          custody_address: string
+          verified_addresses: Json
+          follower_count: number
+          following_count: number
+          power_badge: boolean
+          score: number
+          profile: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          fid?: number
+          username?: string
+          display_name?: string
+          pfp_url?: string
+          custody_address?: string
+          verified_addresses?: Json
+          follower_count?: number
+          following_count?: number
+          power_badge?: boolean
+          score?: number
+          profile?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
       nfts: {
         Row: {
           id: string

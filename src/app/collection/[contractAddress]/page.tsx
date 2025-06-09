@@ -4,6 +4,7 @@ import { useEffect, useState, memo } from 'react';
 import { useParams } from 'next/navigation';
 import { Loader2, RefreshCw } from 'lucide-react';
 import NFTGrid from '../../../components/NFTGrid';
+import FCNFTGrid from '../../../components/FCNFTGrid';
 import { SearchBar } from '../../../components/SearchBar';
 import useSWR from 'swr';
 
@@ -18,11 +19,9 @@ interface APIError extends Error {
 
 // Move RefreshButton outside and memoize it
 const RefreshButton = memo(function RefreshButton({ 
-  contractAddress,
   refreshStatus,
   onRefresh
 }: { 
-  contractAddress: string;
   refreshStatus: { canRefresh: boolean; nextRefreshTime: string | null; remainingTime: number } | null;
   onRefresh: () => Promise<void>;
 }) {
@@ -88,6 +87,7 @@ const fetchRefreshStatus = async (url: string) => {
 export default function CollectionPage() {
   const params = useParams();
   const contractAddress = params.contractAddress as string;
+  const [viewMode, setViewMode] = useState<'all' | 'fc'>('all');
 
   // State to track if we're waiting for refresh
   const [isPopulating, setIsPopulating] = useState(false);
@@ -252,7 +252,6 @@ export default function CollectionPage() {
               </p>
             </div>
             <RefreshButton 
-              contractAddress={contractAddress}
               refreshStatus={refreshStatus}
               onRefresh={handleRefresh}
             />
@@ -274,9 +273,40 @@ export default function CollectionPage() {
           </div>
         </div>
 
-        {/* NFT Grid */}
+        {/* View Mode Toggle */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-          <NFTGrid contractAddress={contractAddress} />
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">NFTs</h2>
+            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('all')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'all'
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                All NFTs
+              </button>
+              <button
+                onClick={() => setViewMode('fc')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'fc'
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                Farcaster Users
+              </button>
+            </div>
+          </div>
+
+          {/* NFT Grid */}
+          {viewMode === 'all' ? (
+            <NFTGrid contractAddress={contractAddress} />
+          ) : (
+            <FCNFTGrid contractAddress={contractAddress} />
+          )}
         </div>
       </div>
     </div>
