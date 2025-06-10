@@ -176,6 +176,32 @@ export interface Database {
           updated_at?: string
         }
       }
+      user_nft_cache: {
+        Row: {
+          id: string
+          cache_key: string
+          wallet_address: string
+          contracts: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          cache_key: string
+          wallet_address: string
+          contracts?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          cache_key?: string
+          wallet_address?: string
+          contracts?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

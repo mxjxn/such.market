@@ -351,7 +351,11 @@ export default function ProfilePage() {
                       {walletData.contracts.slice(0, 8).map((contract, index) => (
                         <div
                           key={contract.address}
-                          className="bg-gray-50 dark:bg-gray-700 p-2 rounded text-sm"
+                          className="bg-gray-50 dark:bg-gray-700 p-2 rounded text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                          onClick={() => {
+                            // Navigate to collection page with "items you own" filter
+                            window.location.href = `/collection/${contract.address}?filter=owned`;
+                          }}
                         >
                           <div className="flex justify-between items-center">
                             <span className="text-gray-900 dark:text-white truncate flex-1 mr-2">
@@ -370,7 +374,11 @@ export default function ProfilePage() {
                           {walletData.contracts.slice(8).map((contract, index) => (
                             <div
                               key={contract.address}
-                              className="bg-gray-50 dark:bg-gray-700 p-2 rounded text-sm"
+                              className="bg-gray-50 dark:bg-gray-700 p-2 rounded text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                              onClick={() => {
+                                // Navigate to collection page with "items you own" filter
+                                window.location.href = `/collection/${contract.address}?filter=owned`;
+                              }}
                             >
                               <div className="flex justify-between items-center">
                                 <span className="text-gray-900 dark:text-white truncate flex-1 mr-2">

@@ -248,19 +248,12 @@ export async function fetchAndStoreCollectionMetadata(contractAddress: string) {
       
       // Try ERC721 first
       try {
-        const [name, symbol, totalSupply] = await Promise.all([
+        const [name, totalSupply] = await Promise.all([
           retryContractCall<string>(
             client,
             address,
             ERC721_METADATA_ABI,
             'name',
-            []
-          ),
-          retryContractCall<string>(
-            client,
-            address,
-            ERC721_METADATA_ABI,
-            'symbol',
             []
           ),
           retryContractCall<bigint>(
@@ -288,7 +281,6 @@ export async function fetchAndStoreCollectionMetadata(contractAddress: string) {
             .upsert({
               contract_address: contractAddress.toLowerCase(),
               name: name || null,
-              symbol: symbol || null,
               token_type: 'ERC721',
               total_supply: totalSupply ? Number(totalSupply) : null,
               verified: true,
@@ -324,19 +316,12 @@ export async function fetchAndStoreCollectionMetadata(contractAddress: string) {
 
       // Try ERC1155
       try {
-        const [name, symbol] = await Promise.all([
+        const [name] = await Promise.all([
           retryContractCall<string>(
             client,
             address,
             ERC1155_METADATA_ABI,
             'name',
-            []
-          ),
-          retryContractCall<string>(
-            client,
-            address,
-            ERC1155_METADATA_ABI,
-            'symbol',
             []
           )
         ]);
@@ -357,7 +342,6 @@ export async function fetchAndStoreCollectionMetadata(contractAddress: string) {
             .upsert({
               contract_address: contractAddress.toLowerCase(),
               name: name || null,
-              symbol: symbol || null,
               token_type: 'ERC1155',
               total_supply: null, // ERC1155 doesn't have totalSupply
               verified: true,
@@ -407,7 +391,6 @@ export async function fetchAndStoreCollectionMetadata(contractAddress: string) {
       .upsert({
         contract_address: contractAddress.toLowerCase(),
         name: metadata.name || null,
-        symbol: metadata.symbol || null,
         token_type: metadata.tokenType as 'ERC721' | 'ERC1155',
         total_supply: metadata.totalSupply ? Number(metadata.totalSupply) : null,
         verified: true,

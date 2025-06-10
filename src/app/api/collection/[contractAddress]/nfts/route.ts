@@ -57,11 +57,12 @@ async function retryContractCall<T>(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { contractAddress: string } }
+  { params }: { params: Promise<{ contractAddress: string }> }
 ) {
+  const { contractAddress } = await params;
   const requestId = Math.random().toString(36).substring(7);
   console.log(`📥 [${requestId}] NFT endpoint called:`, {
-    contractAddress: params.contractAddress,
+    contractAddress,
     url: request.url,
     method: request.method,
     timestamp: new Date().toISOString(),
@@ -83,7 +84,7 @@ export async function GET(
     // Get collection first to ensure it exists
     console.log(`🔍 [${requestId}] Fetching collection...`);
     try {
-      const collection = await getCollectionByAddress(params.contractAddress);
+      const collection = await getCollectionByAddress(contractAddress);
       console.log(`📝 [${requestId}] Collection fetch result:`, {
         found: !!collection,
         id: collection?.id,
@@ -95,7 +96,7 @@ export async function GET(
       });
 
       if (!collection) {
-        console.error(`❌ [${requestId}] Collection not found:`, params.contractAddress);
+        console.error(`❌ [${requestId}] Collection not found:`, contractAddress);
         return NextResponse.json(
           { error: 'Collection not found' },
           { status: 404 }
@@ -104,7 +105,7 @@ export async function GET(
 
       // Get NFTs from database
       const { nfts: dbNFTs, total } = await getCollectionNFTs(
-        params.contractAddress,
+        contractAddress,
         page,
         pageSize
       );
@@ -114,7 +115,7 @@ export async function GET(
         total,
         page,
         pageSize,
-        contractAddress: params.contractAddress,
+        contractAddress,
       });
 
       let nfts = dbNFTs;
@@ -141,14 +142,14 @@ export async function GET(
           try {
             // Fetch missing NFTs from blockchain
             await fetchAndStoreNFTMetadata(
-              params.contractAddress,
+              contractAddress,
               missingTokenIds,
               collection.id
             );
 
             // Get all NFTs for this page (including newly fetched ones)
             const { nfts: updatedNFTs } = await getCollectionNFTs(
-              params.contractAddress,
+              contractAddress,
               page,
               pageSize
             );
@@ -177,7 +178,7 @@ export async function GET(
         // Try to get the owner of the next token
         try {
           await retryContractCall<Address>(
-            params.contractAddress as Address,
+            contractAddress as Address,
             ERC721_METADATA_ABI,
             'ownerOf',
             [BigInt(nextTokenId)]
@@ -235,7 +236,7 @@ export async function GET(
       console.error(`❌ [${requestId}] Error in getCollectionNFTs:`, {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
-        contractAddress: params.contractAddress,
+        contractAddress,
         page,
         pageSize,
         phase: 'getCollectionNFTs',
@@ -245,7 +246,7 @@ export async function GET(
         { 
           error: 'Failed to fetch NFTs',
           details: error instanceof Error ? error.message : 'Error occurred while fetching existing NFTs',
-          contractAddress: params.contractAddress,
+          contractAddress,
           page,
           pageSize,
           raw: error, // Include raw error in response
@@ -257,7 +258,7 @@ export async function GET(
     console.error(`❌ [${requestId}] Error in NFT endpoint:`, {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      contractAddress: params.contractAddress,
+      contractAddress,
       page,
       pageSize,
       phase: 'main',
@@ -267,7 +268,7 @@ export async function GET(
       { 
         error: 'Failed to fetch NFTs',
         details: error instanceof Error ? error.message : 'An unexpected error occurred',
-        contractAddress: params.contractAddress,
+        contractAddress,
         page,
         pageSize,
         raw: error, // Include raw error in response

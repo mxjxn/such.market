@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { getSupabaseClient } from '~/lib/supabase';
 
 // Initialize Redis client
 const redis = new Redis({
@@ -133,24 +134,55 @@ export async function GET(
       };
       
       try {
-        // Check Redis cache first
+        // Check cache first (Redis or Supabase)
         const cacheKey = `user:${fid}:${walletAddress}:nfts`;
-        console.log(`🔍 Checking Redis cache for key: ${cacheKey}`);
+        console.log(`🔍 Checking cache for key: ${cacheKey}`);
         
         let cachedData: CachedNFTData | null = null;
+        let cacheSource = 'none';
         
+        // Try Redis cache first
         if (isRedisConfigured) {
           try {
             cachedData = await redis.get<CachedNFTData>(cacheKey);
+            if (cachedData) {
+              cacheSource = 'redis';
+              console.log(`✅ Found Redis cached data for wallet: ${walletAddress}`);
+            }
           } catch (redisError) {
             console.warn(`⚠️ Redis cache error for ${cacheKey}:`, redisError);
           }
         } else {
-          console.log(`⚠️ Redis not configured, skipping cache check for ${cacheKey}`);
+          console.log(`⚠️ Redis not configured, trying Supabase cache for ${cacheKey}`);
+        }
+        
+        // If no Redis cache, try Supabase cache
+        if (!cachedData) {
+          const supabase = getSupabaseClient();
+          const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          
+          const { data: supabaseCache, error: supabaseError } = await supabase
+            .from('user_nft_cache')
+            .select('*')
+            .eq('cache_key', cacheKey)
+            .gte('created_at', twentyFourHoursAgo)
+            .single();
+          
+          if (supabaseCache && !supabaseError) {
+            cachedData = {
+              contracts: supabaseCache.contracts || [],
+              cachedAt: new Date(supabaseCache.created_at).getTime(),
+              walletAddress: supabaseCache.wallet_address
+            };
+            cacheSource = 'supabase';
+            console.log(`✅ Found Supabase cached data for wallet: ${walletAddress}`);
+          } else if (supabaseError) {
+            console.warn(`⚠️ Supabase cache error for ${cacheKey}:`, supabaseError);
+          }
         }
         
         if (cachedData && isCacheValid(cachedData.cachedAt)) {
-          console.log(`✅ Found valid cached data for wallet: ${walletAddress}`);
+          console.log(`✅ Found valid cached data (${cacheSource}) for wallet: ${walletAddress}`);
           walletData.contracts = cachedData.contracts;
           walletData.status = cachedData.contracts.length > 0 ? 'found' : 'none';
           walletData.hasMoreCollections = cachedData.contracts.length >= 1000;
@@ -158,12 +190,12 @@ export async function GET(
           
           if (cachedData.contracts.length > 0) {
             if (walletData.hasMoreCollections) {
-              walletData.message = `Found first ${cachedData.contracts.length} NFT collection(s) (cached)`;
+              walletData.message = `Found first ${cachedData.contracts.length} NFT collection(s) (${cacheSource} cached)`;
             } else {
-              walletData.message = `Found ${cachedData.contracts.length} NFT collection(s) (cached)`;
+              walletData.message = `Found ${cachedData.contracts.length} NFT collection(s) (${cacheSource} cached)`;
             }
           } else {
-            walletData.message = `No NFTs discovered for ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} (cached)`;
+            walletData.message = `No NFTs discovered for ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} (${cacheSource} cached)`;
           }
           walletNfts.push(walletData);
           continue;
@@ -195,15 +227,36 @@ export async function GET(
             walletAddress
           };
           
+          // Try to cache in Redis first
           if (isRedisConfigured) {
             try {
-              console.log(`💾 Caching NFT data for wallet: ${walletAddress}`);
+              console.log(`💾 Caching NFT data in Redis for wallet: ${walletAddress}`);
               await redis.setex(cacheKey, CACHE_TTL_HOURS * 3600, cacheData);
             } catch (redisError) {
-              console.warn(`⚠️ Failed to cache data for ${walletAddress}:`, redisError);
+              console.warn(`⚠️ Failed to cache data in Redis for ${walletAddress}:`, redisError);
             }
-          } else {
-            console.log(`⚠️ Redis not configured, skipping cache for ${walletAddress}`);
+          }
+          
+          // Always cache in Supabase as fallback
+          try {
+            console.log(`💾 Caching NFT data in Supabase for wallet: ${walletAddress}`);
+            const supabase = getSupabaseClient();
+            const now = new Date().toISOString();
+            
+            await supabase
+              .from('user_nft_cache')
+              .upsert({
+                cache_key: cacheKey,
+                wallet_address: walletAddress,
+                contracts: cacheData.contracts,
+                created_at: now,
+                updated_at: now
+              }, {
+                onConflict: 'cache_key',
+                ignoreDuplicates: false
+              });
+          } catch (supabaseError) {
+            console.warn(`⚠️ Failed to cache data in Supabase for ${walletAddress}:`, supabaseError);
           }
           
         } else {
@@ -218,15 +271,36 @@ export async function GET(
             walletAddress
           };
           
+          // Try to cache in Redis first
           if (isRedisConfigured) {
             try {
-              console.log(`💾 Caching empty result for wallet: ${walletAddress}`);
+              console.log(`💾 Caching empty result in Redis for wallet: ${walletAddress}`);
               await redis.setex(cacheKey, CACHE_TTL_HOURS * 3600, cacheData);
             } catch (redisError) {
-              console.warn(`⚠️ Failed to cache empty result for ${walletAddress}:`, redisError);
+              console.warn(`⚠️ Failed to cache empty result in Redis for ${walletAddress}:`, redisError);
             }
-          } else {
-            console.log(`⚠️ Redis not configured, skipping cache for ${walletAddress}`);
+          }
+          
+          // Always cache in Supabase as fallback
+          try {
+            console.log(`💾 Caching empty result in Supabase for wallet: ${walletAddress}`);
+            const supabase = getSupabaseClient();
+            const now = new Date().toISOString();
+            
+            await supabase
+              .from('user_nft_cache')
+              .upsert({
+                cache_key: cacheKey,
+                wallet_address: walletAddress,
+                contracts: [],
+                created_at: now,
+                updated_at: now
+              }, {
+                onConflict: 'cache_key',
+                ignoreDuplicates: false
+              });
+          } catch (supabaseError) {
+            console.warn(`⚠️ Failed to cache empty result in Supabase for ${walletAddress}:`, supabaseError);
           }
         }
         

@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState, memo } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { Loader2, RefreshCw } from 'lucide-react';
 import NFTGrid from '../../../components/NFTGrid';
 import FCNFTGrid from '../../../components/FCNFTGrid';
+import OwnedNFTGrid from '../../../components/OwnedNFTGrid';
 import { SearchBar } from '../../../components/SearchBar';
 import useSWR from 'swr';
 
@@ -86,12 +87,43 @@ const fetchRefreshStatus = async (url: string) => {
 
 export default function CollectionPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const contractAddress = params.contractAddress as string;
-  const [viewMode, setViewMode] = useState<'all' | 'fc'>('all');
+  const [viewMode, setViewMode] = useState<'all' | 'fc' | 'owned'>('all');
 
   // State to track if we're waiting for refresh
   const [isPopulating, setIsPopulating] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+
+  // Check for filter parameter in URL
+  useEffect(() => {
+    const filter = searchParams.get('filter');
+    if (filter === 'owned') {
+      setViewMode('owned');
+    } else if (filter === 'fc') {
+      setViewMode('fc');
+    } else {
+      setViewMode('all');
+    }
+  }, [searchParams]);
+
+  // Function to update URL when view mode changes
+  const updateViewMode = (mode: 'all' | 'fc' | 'owned') => {
+    setViewMode(mode);
+    const newSearchParams = new URLSearchParams(searchParams);
+    
+    if (mode === 'owned') {
+      newSearchParams.set('filter', 'owned');
+    } else if (mode === 'fc') {
+      newSearchParams.set('filter', 'fc');
+    } else {
+      newSearchParams.delete('filter');
+    }
+    
+    const newUrl = `${window.location.pathname}?${newSearchParams.toString()}`;
+    router.replace(newUrl);
+  };
 
   // Fetch collection data with SWR
   const { 
@@ -279,7 +311,7 @@ export default function CollectionPage() {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">NFTs</h2>
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
               <button
-                onClick={() => setViewMode('all')}
+                onClick={() => updateViewMode('all')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   viewMode === 'all'
                     ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
@@ -289,7 +321,7 @@ export default function CollectionPage() {
                 All NFTs
               </button>
               <button
-                onClick={() => setViewMode('fc')}
+                onClick={() => updateViewMode('fc')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   viewMode === 'fc'
                     ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
@@ -298,14 +330,26 @@ export default function CollectionPage() {
               >
                 Farcaster Users
               </button>
+              <button
+                onClick={() => updateViewMode('owned')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'owned'
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                Items You Own
+              </button>
             </div>
           </div>
 
           {/* NFT Grid */}
           {viewMode === 'all' ? (
             <NFTGrid contractAddress={contractAddress} />
-          ) : (
+          ) : viewMode === 'fc' ? (
             <FCNFTGrid contractAddress={contractAddress} />
+          ) : (
+            <OwnedNFTGrid contractAddress={contractAddress} />
           )}
         </div>
       </div>

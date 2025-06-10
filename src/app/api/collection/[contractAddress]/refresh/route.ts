@@ -49,9 +49,9 @@ const REFRESH_COOLDOWN = 1800; // 30 minutes in seconds
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { contractAddress: string } }
+  { params }: { params: Promise<{ contractAddress: string }> }
 ) {
-  const { contractAddress } = params;
+  const { contractAddress } = await params;
   const requestId = Math.random().toString(36).substring(7);
   
   console.log(`🔄 [${requestId}] Cache Refresh Request:`, {

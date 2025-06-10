@@ -88,6 +88,42 @@ let alchemy: Alchemy | null = null;
 let client: PublicClient<HttpTransport, Chain> | null = null;
 let supabase: ReturnType<typeof getSupabaseClient> | null = null;
 
+// Export the missing functions that collections.ts needs
+export async function getProviderWithRetry(): Promise<PublicClient<HttpTransport, Chain>> {
+  const { client } = await getClients();
+  if (!client) {
+    throw new Error('Failed to initialize Viem client');
+  }
+  return client;
+}
+
+export async function retryContractCall<T>(
+  client: PublicClient<HttpTransport, Chain>,
+  address: Address,
+  abi: Abi,
+  functionName: string,
+  args: unknown[],
+  maxRetries = 3
+): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await client.readContract({
+        address,
+        abi,
+        functionName: functionName as any,
+        args: args as any,
+      }) as T;
+    } catch (error) {
+      lastError = error;
+      if (i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+      }
+    }
+  }
+  throw lastError;
+}
+
 async function getClients() {
   // Log environment variables (without values)
   const envVars = {
