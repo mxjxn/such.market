@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
+import { redis, isRedisConfigured } from '~/lib/redis';
 import { APP_NAME } from '~/lib/constants';
-
-// Initialize Redis client
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL!,
-  token: process.env.KV_REST_API_TOKEN!,
-});
 
 export async function POST() {
   try {
+    if (!isRedisConfigured || !redis) {
+      return NextResponse.json({
+        success: false,
+        keysDeleted: 0,
+        message: 'Redis not configured',
+      });
+    }
+
     // Get all keys matching our app's pattern
     const keys = await redis.keys(`${APP_NAME}:*`);
     

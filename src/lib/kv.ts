@@ -1,61 +1,80 @@
 import { FrameNotificationDetails } from "@farcaster/frame-sdk";
-import { Redis } from "@upstash/redis";
+import { 
+  redis, 
+  isRedisConfigured, 
+  REDIS_CONFIG,
+  getCachedData,
+  setCachedData
+} from "./redis";
 import { APP_NAME } from "./constants";
 
 // In-memory fallback storage
 const localStore = new Map<string, FrameNotificationDetails>();
 const localCollections = new Map<string, string>();
 
-// Use Redis if KV env vars are present, otherwise use in-memory
-console.log('🔧 Checking Redis configuration...');
-console.log('KV_REST_API_URL:', process.env.KV_REST_API_URL ? '✅ Set' : '❌ Not set');
-console.log('KV_REST_API_TOKEN:', process.env.KV_REST_API_TOKEN ? '✅ Set' : '❌ Not set');
+// Log Redis configuration status
+console.log('🔧 [KV Store] Redis configuration status:', {
+  configured: isRedisConfigured,
+  url: REDIS_CONFIG.url ? '✅ Set' : '❌ Not set',
+  token: REDIS_CONFIG.token ? '✅ Set' : '❌ Not set',
+  appName: APP_NAME,
+});
 
-const useRedis = process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN;
-const redis = useRedis ? new Redis({
-  url: process.env.KV_REST_API_URL!,
-  token: process.env.KV_REST_API_TOKEN!,
-}) : null;
-
-console.log('Redis initialization:', useRedis ? '✅ Using Redis' : '❌ Using in-memory storage');
-
-// Keys for different types of data
-const COLLECTIONS_KEY = `${APP_NAME}:collections`;
-
-function getUserNotificationDetailsKey(fid: number): string {
-  return `${APP_NAME}:user:${fid}`;
-}
-
-export async function getUserNotificationDetails(
-  fid: number
-): Promise<FrameNotificationDetails | null> {
-  const key = getUserNotificationDetailsKey(fid);
-  if (redis) {
-    return await redis.get<FrameNotificationDetails>(key);
-  }
-  return localStore.get(key) || null;
-}
-
-export async function setUserNotificationDetails(
-  fid: number,
-  notificationDetails: FrameNotificationDetails
-): Promise<void> {
-  const key = getUserNotificationDetailsKey(fid);
-  if (redis) {
-    await redis.set(key, notificationDetails);
+// Frame notification functions
+export async function addFrameNotification(notification: FrameNotificationDetails): Promise<void> {
+  console.log('📝 [KV Store] Adding frame notification:', { 
+    type: notification.type,
+    timestamp: notification.timestamp 
+  });
+  
+  if (isRedisConfigured && redis) {
+    console.log('🔑 [KV Store] Using Redis for storage');
+    const key = `${APP_NAME}:frame:notification:${notification.timestamp}`;
+    await setCachedData(key, notification, REDIS_CONFIG.ttl.hot);
+    
+    // Verify the write
+    const verifyNotification = await getCachedData<FrameNotificationDetails>(key);
+    console.log('✅ [KV Store] Verification after write:', {
+      success: !!verifyNotification,
+      type: verifyNotification?.type
+    });
   } else {
-    localStore.set(key, notificationDetails);
+    console.log('⚠️ [KV Store] Using in-memory storage (Redis not configured)');
+    localStore.set(notification.timestamp.toString(), notification);
+    console.log('📚 [KV Store] Current notifications in memory:', {
+      count: localStore.size
+    });
   }
 }
 
-export async function deleteUserNotificationDetails(
-  fid: number
-): Promise<void> {
-  const key = getUserNotificationDetailsKey(fid);
-  if (redis) {
-    await redis.del(key);
+export async function getFrameNotifications(): Promise<FrameNotificationDetails[]> {
+  console.log('🔍 [KV Store] Fetching frame notifications...');
+  
+  if (isRedisConfigured && redis) {
+    console.log('🔑 [KV Store] Using Redis for retrieval');
+    const keys = await redis.keys(`${APP_NAME}:frame:notification:*`);
+    const notifications: FrameNotificationDetails[] = [];
+    
+    for (const key of keys) {
+      const notification = await getCachedData<FrameNotificationDetails>(key);
+      if (notification) {
+        notifications.push(notification);
+      }
+    }
+    
+    console.log('📚 [KV Store] Retrieved from Redis:', { 
+      count: notifications.length,
+      notifications: notifications.map(n => ({ type: n.type, timestamp: n.timestamp }))
+    });
+    return notifications;
   } else {
-    localStore.delete(key);
+    console.log('⚠️ [KV Store] Using in-memory storage (Redis not configured)');
+    const notifications = Array.from(localStore.values());
+    console.log('📚 [KV Store] Retrieved from memory:', {
+      count: notifications.length,
+      notifications: notifications.map(n => ({ type: n.type, timestamp: n.timestamp }))
+    });
+    return notifications;
   }
 }
 
@@ -63,22 +82,19 @@ export async function deleteUserNotificationDetails(
 export async function addCollectionName(name: string, address: string): Promise<void> {
   console.log('📝 [KV Store] Adding collection:', { name, address });
   
-  if (redis) {
+  if (isRedisConfigured && redis) {
     console.log('🔑 [KV Store] Using Redis for storage');
-    const collections = await redis.get<Record<string, string>>(COLLECTIONS_KEY) || {};
-    console.log('📚 [KV Store] Current collections in Redis:', { 
-      count: Object.keys(collections).length,
-      collections: Object.entries(collections)
-    });
+    const key = `${APP_NAME}:collections:names`;
+    const collections = await getCachedData<Record<string, string>>(key) || {};
     
     collections[name] = address;
-    await redis.set(COLLECTIONS_KEY, collections);
+    await setCachedData(key, collections, REDIS_CONFIG.ttl.cold);
     
     // Verify the write
-    const verifyCollections = await redis.get<Record<string, string>>(COLLECTIONS_KEY);
+    const verifyCollections = await getCachedData<Record<string, string>>(key);
     console.log('✅ [KV Store] Verification after write:', {
       success: verifyCollections?.[name] === address,
-      collections: verifyCollections
+      count: Object.keys(verifyCollections || {}).length
     });
   } else {
     console.log('⚠️ [KV Store] Using in-memory storage (Redis not configured)');
@@ -93,13 +109,14 @@ export async function addCollectionName(name: string, address: string): Promise<
 export async function getCollectionNames(): Promise<Record<string, string>> {
   console.log('🔍 [KV Store] Fetching collections...');
   
-  if (redis) {
+  if (isRedisConfigured && redis) {
     console.log('🔑 [KV Store] Using Redis for retrieval');
-    const collections = await redis.get<Record<string, string>>(COLLECTIONS_KEY) || {};
+    const key = `${APP_NAME}:collections:names`;
+    const collections = await getCachedData<Record<string, string>>(key) || {};
+    
     console.log('📚 [KV Store] Retrieved from Redis:', { 
       count: Object.keys(collections).length,
-      collections: Object.entries(collections),
-      raw: collections // Log the raw object to see its structure
+      collections: Object.entries(collections)
     });
     return collections;
   } else {
@@ -107,8 +124,7 @@ export async function getCollectionNames(): Promise<Record<string, string>> {
     const collections = Object.fromEntries(localCollections);
     console.log('📚 [KV Store] Retrieved from memory:', {
       count: Object.keys(collections).length,
-      collections: Object.entries(localCollections),
-      raw: collections
+      collections: Object.entries(localCollections)
     });
     return collections;
   }
@@ -118,7 +134,7 @@ export async function getCollectionSuggestions(prefix: string): Promise<Array<{ 
   if (!redis) return [];
   
   // Get all collection names
-  const collections = await redis.hgetall<Record<string, string>>(COLLECTIONS_KEY);
+  const collections = await redis.hgetall<Record<string, string>>(CACHE_KEYS.collections);
   if (!collections) return [];
 
   // Filter and sort suggestions

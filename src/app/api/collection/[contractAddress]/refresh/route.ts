@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
 import { getCollectionByAddress, fetchAndStoreCollectionMetadata } from '~/lib/db/collections';
 import { getSupabaseClient } from '~/lib/supabase';
 import { Alchemy, Network, Nft } from 'alchemy-sdk';
 import { v4 as uuidv4 } from 'uuid';
+import { redis, isRedisConfigured, CACHE_KEYS, invalidateCache } from '~/lib/redis';
 
 // Define extended NFT type to include all properties we need
 interface ExtendedNft extends Nft {
@@ -25,12 +25,6 @@ interface ExtendedNft extends Nft {
   };
 }
 
-// Initialize Redis client
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL!,
-  token: process.env.KV_REST_API_TOKEN!,
-});
-
 // Initialize Supabase client
 const supabase = getSupabaseClient();
 
@@ -42,238 +36,183 @@ const alchemy = new Alchemy({
 
 // Cache keys
 const REFRESH_LOCK_KEY = (contractAddress: string) => 
-  `nft:collection:${contractAddress}:refresh:lock`;
-
-// Rate limit settings
-const REFRESH_COOLDOWN = 1800; // 30 minutes in seconds
+  `such-market:collection:${contractAddress}:refresh:lock`;
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ contractAddress: string }> }
 ) {
-  const { contractAddress } = await params;
-  const requestId = Math.random().toString(36).substring(7);
-  
-  console.log(`🔄 [${requestId}] Cache Refresh Request:`, {
-    url: request.url,
-    method: request.method,
-    contractAddress,
-  });
-  
   try {
-    // Validate contract address
-    if (!contractAddress || !/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
-      console.log('❌ Invalid contract address:', contractAddress);
+    const { contractAddress } = await params;
+
+    if (!contractAddress || !contractAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
       return NextResponse.json(
         { error: 'Invalid contract address' },
         { status: 400 }
       );
     }
 
-    // Check if refresh is locked
-    const lockExpiry = await redis.get<number>(REFRESH_LOCK_KEY(contractAddress));
-    const now = Math.floor(Date.now() / 1000);
-    
-    if (lockExpiry && lockExpiry > now) {
-      const remainingTime = Math.ceil((lockExpiry - now) / 60); // Convert to minutes
-      return NextResponse.json(
-        { 
-          error: 'Refresh is rate limited',
-          message: `Please wait ${remainingTime} minutes before refreshing again`,
-          nextRefreshTime: new Date(lockExpiry * 1000).toISOString(),
-        },
-        { status: 429 }
-      );
+    console.log(`🔄 [Refresh] Starting refresh for collection: ${contractAddress}`);
+
+    // Check if refresh is already in progress
+    if (isRedisConfigured && redis) {
+      const lockKey = REFRESH_LOCK_KEY(contractAddress);
+      const lockExists = await redis.get(lockKey);
+      
+      if (lockExists) {
+        console.log(`⏳ [Refresh] Refresh already in progress for: ${contractAddress}`);
+        return NextResponse.json(
+          { error: 'Refresh already in progress' },
+          { status: 429 }
+        );
+      }
+
+      // Set refresh lock (5 minutes)
+      await redis.setex(lockKey, 300, { timestamp: Date.now() });
     }
 
-    // Set refresh lock
-    await redis.set(
-      REFRESH_LOCK_KEY(contractAddress),
-      now + REFRESH_COOLDOWN,
-      { ex: REFRESH_COOLDOWN }
-    );
-
-    // Delete all cached pages and collection index
-    const keys = await redis.keys(`nft:collection:${contractAddress}:*`);
-    if (keys.length > 0) {
-      await redis.del(...keys);
-    }
-
-    console.log('🔄 Manual refresh initiated:', {
-      contractAddress,
-      clearedKeys: keys.length,
-      nextRefreshTime: new Date((now + REFRESH_COOLDOWN) * 1000).toISOString(),
-    });
-
-    // Step 1: Check database
-    console.log(`📦 [${requestId}] Checking database for collection...`);
-    let collection = await getCollectionByAddress(contractAddress);
+    // Get or create collection
+    let collection = await getCollectionByAddress(contractAddress.toLowerCase());
     
     if (!collection) {
-      console.log(`🔄 [${requestId}] Collection not found in database, fetching metadata...`);
+      console.log(`🔄 [Refresh] Collection not found, fetching metadata...`);
+      collection = await fetchAndStoreCollectionMetadata(contractAddress);
       
-      // Step 2: Try to fetch and store collection metadata
-      try {
-        // This will try Alchemy first, then fall back to on-chain
-        collection = await fetchAndStoreCollectionMetadata(contractAddress);
-        
-        if (!collection) {
-          console.error(`❌ [${requestId}] Failed to fetch collection metadata from both Alchemy and on-chain`);
-          return NextResponse.json(
-            { error: 'Failed to fetch collection metadata' },
-            { status: 404 }
-          );
-        }
-        
-        console.log(`✅ [${requestId}] Collection metadata fetched and stored:`, {
-          id: collection.id,
-          name: collection.name,
-          tokenType: collection.token_type,
-        });
-
-        // At this point, collection is guaranteed to be non-null
-        const nonNullCollection = collection;
-
-        // Step 3: Fetch first page of NFTs for new collections using Alchemy
-        console.log(`🔄 [${requestId}] Fetching first page of NFTs using Alchemy...`);
-        try {
-          const pageSize = 20; // Default page size
-          const options = {
-            pageSize,
-            pageKey: '0', // Start from the beginning
-          };
-
-          const { nfts: alchemyNFTs } = await alchemy.nft.getNftsForContract(contractAddress, options);
-          
-          if (alchemyNFTs && alchemyNFTs.length > 0) {
-            // Convert Alchemy NFTs to our format
-            const nftMetadata = (alchemyNFTs as ExtendedNft[]).map(nft => ({
-              tokenId: nft.tokenId,
-              title: nft.title || `NFT #${nft.tokenId}`,
-              description: nft.description || null,
-              imageUrl: nft.media[0]?.gateway || null,
-              thumbnailUrl: nft.media[0]?.thumbnail || null,
-              metadata: nft.rawMetadata || undefined,
-              attributes: nft.rawMetadata?.attributes || undefined,
-              media: nft.media.map((m: ExtendedNft['media'][0]) => ({
-                gateway: m.gateway || null,
-                thumbnail: m.thumbnail || null,
-                raw: m.raw || null,
-                format: m.format || 'image',
-                bytes: m.bytes || 0,
-              })),
-            }));
-
-            // Store NFTs in database
-            const { error: upsertError } = await supabase
-              .from('nfts')
-              .upsert(
-                nftMetadata.map(nft => ({
-                  id: uuidv4(),
-                  collection_id: nonNullCollection.id,
-                  token_id: nft.tokenId,
-                  title: nft.title,
-                  description: nft.description,
-                  image_url: nft.imageUrl,
-                  thumbnail_url: nft.thumbnailUrl,
-                  metadata: nft.metadata,
-                  attributes: nft.attributes,
-                  media: nft.media,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                })),
-                { onConflict: 'collection_id,token_id' }
-              );
-
-            if (upsertError) {
-              console.error(`❌ [${requestId}] Error storing NFTs:`, {
-                error: upsertError,
-                contractAddress,
-                collectionId: nonNullCollection.id,
-                nftCount: nftMetadata.length,
-              });
-            } else {
-              console.log(`✅ [${requestId}] Successfully stored NFTs:`, {
-                count: nftMetadata.length,
-                firstNFT: nftMetadata[0] ? {
-                  tokenId: nftMetadata[0].tokenId,
-                  title: nftMetadata[0].title,
-                  hasImage: !!nftMetadata[0].imageUrl,
-                } : null,
-              });
-            }
-          } else {
-            console.log(`ℹ️ [${requestId}] No NFTs found in Alchemy for collection:`, {
-              contractAddress,
-              collectionId: nonNullCollection.id,
-            });
-          }
-        } catch (error) {
-          console.error(`⚠️ [${requestId}] Error fetching NFTs from Alchemy:`, {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined,
-            contractAddress,
-            collectionId: nonNullCollection.id,
-          });
-          // Don't throw here - we still want to return the collection data
-        }
-      } catch (error) {
-        console.error(`❌ [${requestId}] Failed to fetch collection metadata:`, {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          contractAddress,
-        });
+      if (!collection) {
+        console.error(`❌ [Refresh] Failed to fetch collection metadata`);
         return NextResponse.json(
-          { error: 'Failed to fetch collection metadata' },
+          { error: 'Collection not found and could not be fetched' },
           { status: 404 }
         );
       }
-    } else {
-      // Update collection refresh time
-      console.log('⏰ Updating collection refresh time...');
-      const { error: updateError } = await supabase
-        .from('collections')
-        .update({ 
-          last_refresh_at: new Date().toISOString(),
-          refresh_cooldown_until: new Date((now + REFRESH_COOLDOWN) * 1000).toISOString()
-        })
-        .eq('contract_address', contractAddress.toLowerCase());
-        
-      if (updateError) {
-        console.error('❌ Failed to update collection refresh time:', updateError);
-      } else {
-        console.log('✅ Collection refresh time updated');
+    }
+
+    const nonNullCollection = collection;
+
+    // Check if collection is in cooldown
+    if (nonNullCollection.refresh_cooldown_until) {
+      const cooldownUntil = new Date(nonNullCollection.refresh_cooldown_until);
+      const now = new Date();
+      
+      if (now < cooldownUntil) {
+        const remainingMinutes = Math.ceil((cooldownUntil.getTime() - now.getTime()) / (1000 * 60));
+        console.log(`⏳ [Refresh] Collection in cooldown for ${remainingMinutes} more minutes`);
+        return NextResponse.json(
+          { 
+            error: 'Collection refresh in cooldown',
+            cooldownUntil: nonNullCollection.refresh_cooldown_until,
+            remainingMinutes
+          },
+          { status: 429 }
+        );
       }
     }
 
-    // Verify we have the collection data
-    if (!collection) {
-      console.error('❌ No collection data available after refresh');
-      return NextResponse.json(
-        { error: 'Collection not found' },
-        { status: 404 }
-      );
+    console.log(`✅ [Refresh] Refreshing collection: ${nonNullCollection.name}`);
+
+    try {
+      const pageSize = 20; // Default page size
+      const options = {
+        pageSize,
+        pageKey: '0', // Start from the beginning
+      };
+
+      const { nfts: alchemyNFTs } = await alchemy.nft.getNftsForContract(contractAddress, options);
+      
+      if (alchemyNFTs && alchemyNFTs.length > 0) {
+        // Convert Alchemy NFTs to our format
+        const nftMetadata = (alchemyNFTs as ExtendedNft[]).map(nft => ({
+          tokenId: nft.tokenId,
+          title: nft.title || `NFT #${nft.tokenId}`,
+          description: nft.description || null,
+          imageUrl: nft.media[0]?.gateway || null,
+          thumbnailUrl: nft.media[0]?.thumbnail || null,
+          metadata: nft.rawMetadata || undefined,
+          attributes: nft.rawMetadata?.attributes || undefined,
+          media: nft.media.map((m: ExtendedNft['media'][0]) => ({
+            gateway: m.gateway || null,
+            thumbnail: m.thumbnail || null,
+            raw: m.raw || null,
+            format: m.format || 'image',
+            bytes: m.bytes || 0,
+          })),
+        }));
+
+        // Store NFTs in database
+        const { error: upsertError } = await supabase
+          .from('nfts')
+          .upsert(
+            nftMetadata.map(nft => ({
+              id: uuidv4(),
+              collection_id: nonNullCollection.id,
+              token_id: nft.tokenId,
+              title: nft.title,
+              description: nft.description,
+              image_url: nft.imageUrl,
+              thumbnail_url: nft.thumbnailUrl,
+              metadata: nft.metadata,
+              attributes: nft.attributes,
+              media: nft.media,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })),
+            { onConflict: 'collection_id,token_id' }
+          );
+
+        if (upsertError) {
+          console.error('❌ [Refresh] Error upserting NFTs:', upsertError);
+          throw upsertError;
+        }
+
+        console.log(`✅ [Refresh] Successfully refreshed ${nftMetadata.length} NFTs`);
+      }
+
+      // Update collection refresh timestamp and cooldown
+      const cooldownUntil = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+      
+      const { error: updateError } = await supabase
+        .from('collections')
+        .update({
+          last_refresh_at: new Date().toISOString(),
+          refresh_cooldown_until: cooldownUntil.toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', nonNullCollection.id);
+
+      if (updateError) {
+        console.error('❌ [Refresh] Error updating collection refresh timestamp:', updateError);
+      }
+
+      // Invalidate cache
+      await invalidateCache(`${CACHE_KEYS.collectionMetadata(contractAddress).split(':metadata')[0]}:*`);
+
+      console.log(`✅ [Refresh] Collection refresh completed successfully`);
+
+      return NextResponse.json({
+        success: true,
+        message: `Successfully refreshed collection: ${nonNullCollection.name}`,
+        nftsProcessed: alchemyNFTs?.length || 0,
+        cooldownUntil: cooldownUntil.toISOString(),
+      });
+
+    } catch (error) {
+      console.error('❌ [Refresh] Error during refresh:', error);
+      throw error;
+    } finally {
+      // Clear refresh lock
+      if (isRedisConfigured && redis) {
+        const lockKey = REFRESH_LOCK_KEY(contractAddress);
+        await redis.del(lockKey);
+      }
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Collection refresh completed',
-      nextRefreshTime: new Date((now + REFRESH_COOLDOWN) * 1000).toISOString(),
-      collection: {
-        id: collection.id,
-        name: collection.name,
-        tokenType: collection.token_type,
-        contractAddress: collection.contract_address,
-        totalSupply: collection.total_supply,
-        lastRefresh: collection.last_refresh_at,
-      },
-    });
   } catch (error) {
-    console.error('❌ Error in refresh endpoint:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      contractAddress: contractAddress,
-    });
+    console.error('❌ [Refresh] Error in refresh endpoint:', error);
     return NextResponse.json(
-      { error: 'Failed to refresh collection' },
+      { 
+        error: 'Internal server error', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      },
       { status: 500 }
     );
   }
