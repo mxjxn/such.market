@@ -68,6 +68,196 @@ curl -X POST "https://your-domain.com/api/admin/cache/clear" \
   -d '{"pattern": "such-market:*"}'
 ```
 
+### Cache Metrics & Analytics (Phase 3) ✅ NEW
+**Endpoint**: `GET /api/admin/cache/metrics`  
+**Purpose**: Get real-time cache performance metrics and health status  
+**When to use**: Monitoring cache performance, troubleshooting, performance analysis  
+
+```bash
+# Get comprehensive cache metrics
+curl "https://your-domain.com/api/admin/cache/metrics"
+
+# Reset analytics data
+curl -X POST "https://your-domain.com/api/admin/cache/metrics" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "reset"}'
+
+# Save analytics to persistent storage
+curl -X POST "https://your-domain.com/api/admin/cache/metrics" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "save"}'
+```
+
+**Expected Response**:
+```json
+{
+  "success": true,
+  "timestamp": 1703123456789,
+  "analytics": {
+    "overview": {
+      "hitRate": 0.95,
+      "missRate": 0.05,
+      "avgResponseTime": 45,
+      "totalRequests": 15000,
+      "cacheSize": 2500,
+      "lastUpdated": 1703123456789
+    },
+    "breakdown": {
+      "byEndpoint": {
+        "/api/collection": {
+          "endpoint": "/api/collection",
+          "requests": 5000,
+          "hits": 4750,
+          "misses": 250,
+          "avgResponseTime": 35,
+          "lastUsed": 1703123456789
+        }
+      },
+      "byCacheType": {
+        "collection_metadata": {
+          "cacheType": "collection_metadata",
+          "keys": 100,
+          "memoryUsage": 1024000,
+          "hitRate": 0.98,
+          "lastAccessed": 1703123456789
+        }
+      }
+    },
+    "alerts": [
+      {
+        "id": "alert_123",
+        "type": "low_hit_rate",
+        "message": "Cache hit rate is low: 75.0%",
+        "severity": "medium",
+        "timestamp": 1703123456789,
+        "resolved": false
+      }
+    ],
+    "eventQueue": {
+      "queueLength": 0,
+      "isProcessing": false,
+      "eventsProcessed": 150
+    }
+  },
+  "health": {
+    "status": "healthy",
+    "issues": [],
+    "recommendations": []
+  },
+  "summary": {
+    "status": "healthy",
+    "hitRate": "95.0%",
+    "avgResponseTime": "45ms",
+    "totalRequests": 15000,
+    "cacheSize": 2500,
+    "activeAlerts": 0
+  }
+}
+```
+
+**Use Cases**:
+- ✅ **Real-time monitoring**: Track cache performance live
+- ✅ **Performance analysis**: Analyze cache hit rates and response times
+- ✅ **Troubleshooting**: Identify cache issues and bottlenecks
+- ✅ **Capacity planning**: Monitor cache size and growth
+- ✅ **Alert management**: Track and resolve performance alerts
+
+### Cache Performance Testing (Phase 3) ✅ NEW
+**Endpoint**: `GET /api/admin/cache/test/performance`  
+**Purpose**: Get cache performance test results  
+**When to use**: After running performance tests, reviewing system performance  
+
+```bash
+# Get performance test results
+curl "https://your-domain.com/api/admin/cache/test/performance"
+```
+
+**Endpoint**: `POST /api/admin/cache/test/performance`  
+**Purpose**: Run comprehensive cache performance tests  
+**When to use**: Performance benchmarking, system validation, capacity testing  
+
+```bash
+# Run all performance tests
+curl -X POST "https://your-domain.com/api/admin/cache/test/performance" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "run"}'
+
+# Reset performance test results
+curl -X POST "https://your-domain.com/api/admin/cache/test/performance" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "reset"}'
+```
+
+**Expected Response** (POST with "run" action):
+```json
+{
+  "success": true,
+  "message": "Performance tests completed successfully",
+  "timestamp": 1703123456789,
+  "results": {
+    "cacheHealth": {
+      "isConfigured": true,
+      "connectionTime": 15,
+      "pingTime": 5
+    },
+    "basicTests": [
+      {
+        "testName": "Basic Cache Operations",
+        "duration": 2500,
+        "operations": 100,
+        "avgResponseTime": 25,
+        "minResponseTime": 10,
+        "maxResponseTime": 150,
+        "successRate": 100,
+        "errors": [],
+        "timestamp": 1703123456789
+      }
+    ],
+    "loadTests": [
+      {
+        "concurrentUsers": 10,
+        "requestsPerSecond": 500,
+        "avgResponseTime": 45,
+        "p95ResponseTime": 120,
+        "p99ResponseTime": 200,
+        "errorRate": 0,
+        "cacheHitRate": 95,
+        "timestamp": 1703123456789
+      }
+    ],
+    "stressTests": [
+      {
+        "maxConcurrentUsers": 50,
+        "maxRequestsPerSecond": 2500,
+        "breakingPoint": 100,
+        "recoveryTime": 2000,
+        "errors": [],
+        "timestamp": 1703123456789
+      }
+    ],
+    "recommendations": [
+      "Cache performance is excellent",
+      "Consider increasing concurrent user capacity",
+      "Monitor cache size growth"
+    ]
+  }
+}
+```
+
+**Test Categories**:
+- ✅ **Health checks**: Redis connection and ping tests
+- ✅ **Basic operations**: 100 cache get/set operations
+- ✅ **Concurrent access**: Multiple users accessing cache simultaneously
+- ✅ **Stress testing**: Find system breaking points
+- ✅ **Recovery testing**: System recovery after stress
+
+**Use Cases**:
+- ✅ **Performance benchmarking**: Establish baseline performance
+- ✅ **Capacity planning**: Determine system limits
+- ✅ **Load testing**: Test under various load conditions
+- ✅ **System validation**: Verify cache performance meets requirements
+- ✅ **Troubleshooting**: Identify performance bottlenecks
+
 ## 🎯 User NFT Discovery
 
 ### Normalized NFT Contracts (Recommended)
@@ -300,6 +490,38 @@ curl -X POST "https://your-domain.com/api/collection/fc/nfts" \
   -d '{"contractAddress": "0x1234...", "fcUsers": [...]}'
 ```
 
+### Scenario 5: Cache Performance Testing (Phase 3) ✅ NEW
+```bash
+# 1. Get current cache metrics
+curl "https://your-domain.com/api/admin/cache/metrics"
+
+# 2. Run performance tests
+curl -X POST "https://your-domain.com/api/admin/cache/test/performance" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "run"}'
+
+# 3. Check test results
+curl "https://your-domain.com/api/admin/cache/test/performance"
+
+# 4. Monitor cache health
+curl "https://your-domain.com/api/admin/cache/metrics"
+```
+
+### Scenario 6: Event-Driven Cache Testing (Phase 3) ✅ NEW
+```bash
+# 1. Check cache before refresh
+curl "https://your-domain.com/api/admin/cache/metrics"
+
+# 2. Refresh a collection (triggers cache events)
+curl -X POST "https://your-domain.com/api/collection/0x1234.../refresh"
+
+# 3. Check cache after refresh (should show invalidation)
+curl "https://your-domain.com/api/admin/cache/metrics"
+
+# 4. Verify event queue status
+curl "https://your-domain.com/api/admin/cache/metrics" | jq '.analytics.eventQueue'
+```
+
 ## 🚨 Troubleshooting Guide
 
 ### Common Issues & Solutions
@@ -347,6 +569,52 @@ SELECT COUNT(*) FROM nft_ownership;
 SELECT COUNT(*) FROM wallet_collection_mapping;
 ```
 
+#### Issue: Low cache hit rate (Phase 3) ✅ NEW
+**Symptoms**: Cache hit rate < 80% in metrics  
+**Solution**:
+```bash
+# Check cache metrics
+curl "https://your-domain.com/api/admin/cache/metrics"
+
+# Run performance tests to identify bottlenecks
+curl -X POST "https://your-domain.com/api/admin/cache/test/performance" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "run"}'
+
+# Check for cache invalidation events
+curl "https://your-domain.com/api/admin/cache/metrics" | jq '.analytics.eventQueue'
+```
+
+#### Issue: High response times (Phase 3) ✅ NEW
+**Symptoms**: Average response time > 100ms  
+**Solution**:
+```bash
+# Check cache health
+curl "https://your-domain.com/api/admin/cache/metrics" | jq '.health'
+
+# Run performance tests
+curl -X POST "https://your-domain.com/api/admin/cache/test/performance" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "run"}'
+
+# Check Redis connection
+curl "https://your-domain.com/api/admin/cache/test/performance" | jq '.results.cacheHealth'
+```
+
+#### Issue: Cache events not processing (Phase 3) ✅ NEW
+**Symptoms**: Event queue stuck or not processing  
+**Solution**:
+```bash
+# Check event queue status
+curl "https://your-domain.com/api/admin/cache/metrics" | jq '.analytics.eventQueue'
+
+# Trigger a cache event manually
+curl -X POST "https://your-domain.com/api/collection/0x1234.../refresh"
+
+# Check if events are being processed
+curl "https://your-domain.com/api/admin/cache/metrics" | jq '.analytics.eventQueue'
+```
+
 ## 📈 Performance Benchmarks
 
 ### Expected Response Times
@@ -359,6 +627,14 @@ SELECT COUNT(*) FROM wallet_collection_mapping;
 - **Hot data (L1)**: 90%+ hit rate
 - **Warm data (L2)**: 80%+ hit rate
 - **Cold data (L3)**: 70%+ hit rate
+
+### Phase 3 Performance Targets ✅ NEW
+- **Overall cache hit rate**: 95%+ (with event-driven invalidation)
+- **Average response time**: <100ms for cached data
+- **Concurrent users**: 50+ users without performance degradation
+- **Cache event processing**: <50ms per event
+- **Performance test success rate**: 100% for basic operations
+- **Stress test breaking point**: 100+ concurrent users
 
 ## 🔄 Data Flow Summary
 
@@ -378,5 +654,7 @@ User Request → Check Normalized DB → Check Redis Cache → Fetch from Alchem
 | FC Community | `/api/collection/fc` | `/api/collection/fc/owners` |
 | Ownership Lookup | `/api/collection/[addr]/nfts/[id]/owner` | On-chain call |
 | System Monitoring | `/api/admin/ownership/stats` | Database queries |
+| Cache Monitoring | `/api/admin/cache/metrics` | Redis CLI |
+| Performance Testing | `/api/admin/cache/test/performance` | Manual testing |
 
 This cheatsheet should help you navigate the API endpoints efficiently for testing, administration, and development purposes. 

@@ -4,6 +4,7 @@ import { getSupabaseClient } from '~/lib/supabase';
 import { Alchemy, Network, Nft } from 'alchemy-sdk';
 import { v4 as uuidv4 } from 'uuid';
 import { redis, isRedisConfigured, CACHE_KEYS, invalidateCache } from '~/lib/redis';
+import { emitCacheEvent, createCacheEvent } from '~/lib/cache/events';
 
 // Define extended NFT type to include all properties we need
 interface ExtendedNft extends Nft {
@@ -186,6 +187,9 @@ export async function POST(
       // Invalidate cache
       await invalidateCache(`${CACHE_KEYS.collectionMetadata(contractAddress).split(':metadata')[0]}:*`);
 
+      // Emit cache invalidation event
+      await emitCacheEvent(createCacheEvent.collectionRefreshed(contractAddress));
+
       console.log(`✅ [Refresh] Collection refresh completed successfully`);
 
       return NextResponse.json({
@@ -225,7 +229,12 @@ export async function GET(
 ) {
   try {
     const { contractAddress } = await context.params;
-    const lockExpiry = await redis.get<number>(REFRESH_LOCK_KEY(contractAddress));
+    
+    let lockExpiry: number | null = null;
+    if (isRedisConfigured && redis) {
+      lockExpiry = await redis.get<number>(REFRESH_LOCK_KEY(contractAddress));
+    }
+    
     const now = Math.floor(Date.now() / 1000);
     
     const canRefresh = !lockExpiry || lockExpiry <= now;
