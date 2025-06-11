@@ -130,6 +130,7 @@ The application uses Supabase (PostgreSQL) with an optimized normalized schema:
 
 - `collections`: NFT collection metadata
 - `nfts`: Individual NFT data with ownership tracking
+- `fc_users`: Farcaster user data and profiles
 - `nft_ownership`: Normalized ownership records
 - `user_collections`: Auto-maintained user collection summaries
 - `wallet_collection_mapping`: Wallet-to-collection relationships
