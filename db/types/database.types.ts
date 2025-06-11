@@ -202,6 +202,93 @@ export interface Database {
           updated_at?: string
         }
       }
+      nft_ownership: {
+        Row: {
+          id: string
+          collection_id: string
+          token_id: string
+          owner_address: string
+          last_verified_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          collection_id: string
+          token_id: string
+          owner_address: string
+          last_verified_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          collection_id?: string
+          token_id?: string
+          owner_address?: string
+          last_verified_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      user_collections: {
+        Row: {
+          id: string
+          user_address: string
+          collection_id: string
+          token_count: number
+          last_updated_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_address: string
+          collection_id: string
+          token_count?: number
+          last_updated_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_address?: string
+          collection_id?: string
+          token_count?: number
+          last_updated_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      wallet_collection_mapping: {
+        Row: {
+          id: string
+          wallet_address: string
+          collection_address: string
+          token_count: number
+          last_owned_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          wallet_address: string
+          collection_address: string
+          token_count?: number
+          last_owned_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          wallet_address?: string
+          collection_address?: string
+          token_count?: number
+          last_owned_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

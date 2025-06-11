@@ -5,10 +5,32 @@ This directory contains all database-related files for the cryptoart-mini-app pr
 ## Structure
 
 - `migrations/`: SQL migration files
-  - `0000_initial_schema.sql`: Initial database schema
   - `0001_seed_initial_data.sql`: Initial seed data
+  - `0002_add_user_nft_cache.sql`: Legacy user NFT cache table
+  - `0003_create_normalized_ownership_tables.sql`: New normalized ownership system
+  - `0004_migrate_existing_ownership_data.sql`: Data migration to normalized tables
+  - `0005_remove_user_nft_cache.sql`: Remove legacy table (optional)
 - `seed/`: TypeScript seed scripts
 - `types/`: Database type definitions
+- `OPTIMIZATION_README.md`: Detailed optimization documentation
+
+## Database Schema
+
+The database consists of the following tables:
+
+### Core Tables
+- `collections`: Stores NFT collection metadata
+- `nfts`: Stores individual NFT data with ownership info
+- `collection_traits`: Stores trait data for efficient filtering
+- `fc_users`: Stores Farcaster user data
+
+### Normalized Ownership Tables (New)
+- `nft_ownership`: Individual NFT ownership tracking
+- `user_collections`: Auto-maintained user collection summaries
+- `wallet_collection_mapping`: Wallet-to-collection relationships
+
+### Legacy Tables (Deprecated)
+- `user_nft_cache`: Legacy caching table (being phased out)
 
 ## Setup
 
@@ -27,6 +49,8 @@ Migrations are automatically run during deployment through Vercel. To run them l
 pnpm db:migrate
 ```
 
+This will push all migrations to your Supabase database.
+
 ## Seeding Data
 
 To seed the database with initial data:
@@ -44,12 +68,27 @@ When making database changes:
 3. Test the migration locally
 4. Commit and push - migrations will run automatically on deployment
 
-## Database Schema
+## Optimization
 
-The database consists of three main tables:
+This database has been optimized for performance and scalability:
 
-- `collections`: Stores NFT collection metadata
-- `nfts`: Stores individual NFT data
-- `collection_traits`: Stores trait data for efficient filtering
+- **Normalized ownership tracking**: Replaces inefficient JSONB storage
+- **Automatic triggers**: Maintain data consistency automatically
+- **Proper indexing**: Optimized for common query patterns
+- **Hierarchical caching**: Redis cache with multiple TTL tiers
 
-See `migrations/0000_initial_schema.sql` for the complete schema. 
+See `OPTIMIZATION_README.md` for detailed optimization documentation.
+
+## Type Safety
+
+Database types are automatically generated and maintained in `types/database.types.ts`. These types are used throughout the application for type-safe database operations.
+
+## Monitoring
+
+Use the ownership statistics endpoint to monitor database health:
+
+```bash
+curl "https://your-domain.com/api/admin/ownership/stats"
+```
+
+This provides real-time statistics about the normalized ownership system. 
