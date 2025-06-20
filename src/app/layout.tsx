@@ -21,11 +21,15 @@ export default async function RootLayout({
   console.log('🔐 Session status:', session ? 'Authenticated' : 'Not authenticated');
 
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" className="scroll-smooth">
+      <body className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
         <Providers session={session}>
-          <TopNavigation />
-          {children}
+          <div className="flex flex-col min-h-screen">
+            <TopNavigation />
+            <main className="flex-1 transition-all duration-300 ease-in-out">
+              {children}
+            </main>
+          </div>
         </Providers>
       </body>
     </html>

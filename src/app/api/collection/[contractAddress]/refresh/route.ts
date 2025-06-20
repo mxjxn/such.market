@@ -39,6 +39,111 @@ const alchemy = new Alchemy({
 const REFRESH_LOCK_KEY = (contractAddress: string) => 
   `such-market:collection:${contractAddress}:refresh:lock`;
 
+// Enhanced discovery functions
+async function discoverSequentialNFTs(
+  contractAddress: string, 
+  discoveredTokenIds: Set<string>, 
+  totalSupply: number
+): Promise<void> {
+  console.log(`🔍 [Discovery] Starting sequential discovery for ${totalSupply} tokens`);
+  
+  // Check tokens in batches to avoid overwhelming the API
+  const batchSize = 50;
+  const batches = Math.ceil(totalSupply / batchSize);
+  
+  for (let batch = 0; batch < batches; batch++) {
+    const startToken = batch * batchSize;
+    const endToken = Math.min((batch + 1) * batchSize, totalSupply);
+    
+    console.log(`🔍 [Discovery] Checking batch ${batch + 1}/${batches}: tokens ${startToken}-${endToken - 1}`);
+    
+    // Check each token in the batch
+    for (let tokenId = startToken; tokenId < endToken; tokenId++) {
+      try {
+        const nft = await alchemy.nft.getNftMetadata(contractAddress, tokenId.toString());
+        if (nft) {
+          discoveredTokenIds.add(tokenId.toString());
+          console.log(`✅ [Discovery] Found token ${tokenId} via sequential discovery`);
+        }
+      } catch (error) {
+        // Token doesn't exist or other error - continue
+        console.log(`⚠️ [Discovery] Token ${tokenId} not found or error:`, error instanceof Error ? error.message : 'Unknown error');
+      }
+      
+      // Add small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  
+  console.log(`✅ [Discovery] Sequential discovery completed. Found ${discoveredTokenIds.size} tokens`);
+}
+
+async function discoverViaAlchemyComprehensive(
+  contractAddress: string, 
+  discoveredTokenIds: Set<string>
+): Promise<void> {
+  console.log(`🔍 [Discovery] Starting comprehensive Alchemy discovery`);
+  
+  let pageKey: string | undefined = '0';
+  let totalDiscovered = 0;
+  
+  do {
+    try {
+      const response = await alchemy.nft.getNftsForContract(contractAddress, {
+        pageSize: 100, // Increased from 20
+        pageKey,
+      });
+      
+      const { nfts, pageKey: nextPageKey } = response;
+      
+      if (nfts && nfts.length > 0) {
+        nfts.forEach((nft: ExtendedNft) => {
+          discoveredTokenIds.add(nft.tokenId);
+          totalDiscovered++;
+        });
+        
+        console.log(`✅ [Discovery] Alchemy batch: found ${nfts.length} tokens (total: ${totalDiscovered})`);
+      }
+      
+      pageKey = nextPageKey;
+      
+      // Add small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+    } catch (error) {
+      console.error(`❌ [Discovery] Alchemy discovery error:`, error);
+      break;
+    }
+  } while (pageKey);
+  
+  console.log(`✅ [Discovery] Comprehensive Alchemy discovery completed. Found ${totalDiscovered} tokens`);
+}
+
+async function discoverNFTsOptimized(
+  contractAddress: string, 
+  collection: { name: string; total_supply?: number | null }
+): Promise<string[]> {
+  const discoveredTokenIds = new Set<string>();
+  
+  console.log(`🚀 [Discovery] Starting optimized NFT discovery for collection: ${collection.name}`);
+  
+  // Method 1: Comprehensive Alchemy discovery (always try first)
+  await discoverViaAlchemyComprehensive(contractAddress, discoveredTokenIds);
+  
+  // Method 2: Sequential discovery for standard collections
+  if (collection.total_supply && collection.total_supply < 10000) {
+    console.log(`🔍 [Discovery] Collection has ${collection.total_supply} total supply, attempting sequential discovery`);
+    await discoverSequentialNFTs(contractAddress, discoveredTokenIds, collection.total_supply);
+  } else {
+    console.log(`ℹ️ [Discovery] Skipping sequential discovery - total supply: ${collection.total_supply || 'unknown'}`);
+  }
+  
+  const finalTokenIds = Array.from(discoveredTokenIds);
+  console.log(`✅ [Discovery] Optimized discovery completed. Total unique tokens found: ${finalTokenIds.length}`);
+  
+  return finalTokenIds;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ contractAddress: string }> }
@@ -53,7 +158,7 @@ export async function POST(
       );
     }
 
-    console.log(`🔄 [Refresh] Starting refresh for collection: ${contractAddress}`);
+    console.log(`🔄 [Refresh] Starting enhanced refresh for collection: ${contractAddress}`);
 
     // Check if refresh is already in progress
     if (isRedisConfigured && redis) {
@@ -68,8 +173,8 @@ export async function POST(
         );
       }
 
-      // Set refresh lock (5 minutes)
-      await redis.setex(lockKey, 300, { timestamp: Date.now() });
+      // Set refresh lock (10 minutes for enhanced discovery)
+      await redis.setex(lockKey, 600, { timestamp: Date.now() });
     }
 
     // Get or create collection
@@ -112,60 +217,76 @@ export async function POST(
     console.log(`✅ [Refresh] Refreshing collection: ${nonNullCollection.name}`);
 
     try {
-      const pageSize = 20; // Default page size
-      const options = {
-        pageSize,
-        pageKey: '0', // Start from the beginning
-      };
-
-      const { nfts: alchemyNFTs } = await alchemy.nft.getNftsForContract(contractAddress, options);
+      // Enhanced discovery: Use multiple methods to find ALL NFTs
+      const discoveredTokenIds = await discoverNFTsOptimized(contractAddress, nonNullCollection);
       
-      if (alchemyNFTs && alchemyNFTs.length > 0) {
-        // Convert Alchemy NFTs to our format
-        const nftMetadata = (alchemyNFTs as ExtendedNft[]).map(nft => ({
-          tokenId: nft.tokenId,
-          title: nft.title || `NFT #${nft.tokenId}`,
-          description: nft.description || null,
-          imageUrl: nft.media[0]?.gateway || null,
-          thumbnailUrl: nft.media[0]?.thumbnail || null,
-          metadata: nft.rawMetadata || undefined,
-          attributes: nft.rawMetadata?.attributes || undefined,
-          media: nft.media.map((m: ExtendedNft['media'][0]) => ({
-            gateway: m.gateway || null,
-            thumbnail: m.thumbnail || null,
-            raw: m.raw || null,
-            format: m.format || 'image',
-            bytes: m.bytes || 0,
-          })),
-        }));
+      console.log(`🎯 [Refresh] Discovery completed. Found ${discoveredTokenIds.length} unique tokens`);
+      
+      if (discoveredTokenIds.length > 0) {
+        // Fetch metadata for discovered tokens
+        const nftMetadataPromises = discoveredTokenIds.map(async (tokenId) => {
+          try {
+            const nft = await alchemy.nft.getNftMetadata(contractAddress, tokenId) as ExtendedNft;
+            if (nft) {
+              return {
+                tokenId: nft.tokenId,
+                title: nft.title || `NFT #${nft.tokenId}`,
+                description: nft.description || null,
+                imageUrl: nft.media[0]?.gateway || null,
+                thumbnailUrl: nft.media[0]?.thumbnail || null,
+                metadata: nft.rawMetadata || undefined,
+                attributes: nft.rawMetadata?.attributes || undefined,
+                media: nft.media.map((m: ExtendedNft['media'][0]) => ({
+                  gateway: m.gateway || null,
+                  thumbnail: m.thumbnail || null,
+                  raw: m.raw || null,
+                  format: m.format || 'image',
+                  bytes: m.bytes || 0,
+                })),
+              };
+            }
+          } catch (error) {
+            console.warn(`⚠️ [Refresh] Error fetching metadata for token ${tokenId}:`, error);
+            return null;
+          }
+        });
 
-        // Store NFTs in database
-        const { error: upsertError } = await supabase
-          .from('nfts')
-          .upsert(
-            nftMetadata.map(nft => ({
-              id: uuidv4(),
-              collection_id: nonNullCollection.id,
-              token_id: nft.tokenId,
-              title: nft.title,
-              description: nft.description,
-              image_url: nft.imageUrl,
-              thumbnail_url: nft.thumbnailUrl,
-              metadata: nft.metadata,
-              attributes: nft.attributes,
-              media: nft.media,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })),
-            { onConflict: 'collection_id,token_id' }
-          );
+        const nftMetadataResults = await Promise.all(nftMetadataPromises);
+        const validNFTMetadata = nftMetadataResults.filter(Boolean);
 
-        if (upsertError) {
-          console.error('❌ [Refresh] Error upserting NFTs:', upsertError);
-          throw upsertError;
+        console.log(`📊 [Refresh] Metadata fetch results: ${validNFTMetadata.length}/${discoveredTokenIds.length} successful`);
+
+        if (validNFTMetadata.length > 0) {
+          // Store NFTs in database
+          const { error: upsertError } = await supabase
+            .from('nfts')
+            .upsert(
+              validNFTMetadata.map(nft => ({
+                id: uuidv4(),
+                collection_id: nonNullCollection.id,
+                token_id: nft!.tokenId,
+                title: nft!.title,
+                description: nft!.description,
+                image_url: nft!.imageUrl,
+                thumbnail_url: nft!.thumbnailUrl,
+                metadata: nft!.metadata,
+                attributes: nft!.attributes,
+                media: nft!.media,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })),
+              { onConflict: 'collection_id,token_id' }
+            );
+
+          if (upsertError) {
+            console.error('❌ [Refresh] Error upserting NFTs:', upsertError);
+            throw upsertError;
+          }
+
+          console.log(`✅ [Refresh] Successfully refreshed ${validNFTMetadata.length} NFTs`);
         }
-
-        console.log(`✅ [Refresh] Successfully refreshed ${nftMetadata.length} NFTs`);
+      } else {
+        console.warn(`⚠️ [Refresh] No NFTs discovered for collection ${contractAddress}`);
       }
 
       // Update collection refresh timestamp and cooldown
@@ -190,12 +311,13 @@ export async function POST(
       // Emit cache invalidation event
       await emitCacheEvent(createCacheEvent.collectionRefreshed(contractAddress));
 
-      console.log(`✅ [Refresh] Collection refresh completed successfully`);
+      console.log(`✅ [Refresh] Enhanced collection refresh completed successfully`);
 
       return NextResponse.json({
         success: true,
         message: `Successfully refreshed collection: ${nonNullCollection.name}`,
-        nftsProcessed: alchemyNFTs?.length || 0,
+        nftsDiscovered: discoveredTokenIds.length,
+        nftsProcessed: validNFTMetadata?.length || 0,
         cooldownUntil: cooldownUntil.toISOString(),
       });
 

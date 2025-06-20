@@ -34,3 +34,139 @@ body {
     --radius: 0.5rem;
   }
 }
+
+/* Smooth page transitions */
+@layer utilities {
+  .page-transition {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  
+  .fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  .slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+
+  .nft-transition {
+    animation: nftTransition 0.5s ease-out;
+  }
+
+  .card-expand {
+    animation: cardExpand 0.4s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes nftTransition {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes cardExpand {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Loading skeleton animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Smooth hover effects - Color transitions only */
+.hover-lift {
+  @apply transition-colors duration-200 ease-out;
+}
+
+/* Card hover effects - Color transitions only */
+.card-hover {
+  @apply transition-colors duration-200 ease-out;
+}
+
+.card-hover:hover {
+  @apply bg-gray-50 dark:bg-gray-700;
+}
+
+/* NFT card specific transitions - Color only */
+.nft-card {
+  @apply transition-colors duration-300 ease-out;
+}
+
+.nft-card:hover {
+  @apply bg-gray-50 dark:bg-gray-700;
+}
+
+/* Page transition overlay */
+.page-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity duration-300;
+}
+
+/* Smooth navigation transitions - Color only */
+.nav-transition {
+  @apply transition-colors duration-200 ease-out;
+}
+
+.nav-transition:hover {
+  @apply transform translate-y-[-2px];
+}

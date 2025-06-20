@@ -85,10 +85,10 @@ export default function Main() {
   }, [frameContext.isSDKLoaded, frameContext.context, isConnected, chainId]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white fade-in">
       <div className="max-w-4xl mx-auto p-4 space-y-8">
         {/* Welcome Section */}
-        <section className="text-center space-y-4 pt-8">
+        <section className="text-center space-y-4 pt-8 slide-up">
           <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
             Welcome to CryptoArt
           </h1>
@@ -98,12 +98,12 @@ export default function Main() {
         </section>
 
         {/* Search Section */}
-        <section className="space-y-4">
+        <section className="space-y-4 slide-up">
           <SearchBar />
         </section>
 
         {/* Wallet Connection Section */}
-        <section className="bg-gray-800/50 rounded-lg p-6 space-y-4">
+        <section className="bg-gray-800/50 rounded-lg p-6 space-y-4 slide-up">
           <h2 className="text-xl font-semibold">Wallet Connection</h2>
           {!isConnected ? (
             <div className="space-y-4">
@@ -111,7 +111,7 @@ export default function Main() {
                 <Button
                   key={connector.uid}
                   onClick={() => connect({ connector })}
-                  className="w-full"
+                  className="w-full transition-colors duration-200"
                 >
                   Connect {connector.name}
                 </Button>
@@ -125,7 +125,7 @@ export default function Main() {
                   <p className="font-mono">{address ? truncateAddress(address) : 'Not connected'}</p>
                 </div>
                 <Button
-                  className="bg-red-600 hover:bg-red-700"
+                  className="bg-red-600 hover:bg-red-700 transition-colors duration-200"
                   onClick={() => disconnect()}
                 >
                   Disconnect
@@ -139,7 +139,7 @@ export default function Main() {
                   {[base, optimism, mainnet, degen, unichain].map((chain) => (
                     <Button
                       key={chain.id}
-                      className={`flex-1 min-w-[120px] ${
+                      className={`flex-1 min-w-[120px] transition-colors duration-200 ${
                         chainId === chain.id 
                           ? 'bg-blue-600 hover:bg-blue-700' 
                           : 'bg-gray-700 hover:bg-gray-600'
@@ -157,13 +157,13 @@ export default function Main() {
 
         {/* Farcaster Frame Section */}
         {frameContext.context && (
-          <section className="bg-gray-800/50 rounded-lg p-6 space-y-6">
+          <section className="bg-gray-800/50 rounded-lg p-6 space-y-6 slide-up">
             <h2 className="text-xl font-semibold">Farcaster Frame Context</h2>
             
             {/* User Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-blue-400">User Information</h3>
-              <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
+              <div className="bg-gray-700/50 rounded-lg p-4 space-y-2 transition-colors duration-200 hover:bg-gray-700/70">
                 <div className="flex items-center space-x-4">
                   {frameContext.context.user.pfpUrl && (
                     <img 

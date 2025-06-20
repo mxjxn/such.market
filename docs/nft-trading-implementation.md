@@ -2,10 +2,11 @@
 
 ## Overview
 
-This document outlines the implementation of NFT listing, offering, and accepting functionality using OpenSea's Seaport protocol. The focus is on creating a **mobile-first, single-column UX** optimized for Farcaster's interface constraints.
+This document outlines the implementation of NFT listing, offering, and accepting functionality using OpenSea's Seaport protocol. The focus is on creating a **mobile-first, single-column UX** optimized for Farcaster's interface constraints, following the **weekend MVP approach** outlined in the market plan.
 
 ## 🎯 Objectives
 
+- **Weekend MVP**: Build core trading functionality within a weekend timeframe
 - **Simple NFT Listings**: Users can list their NFTs for sale with minimal friction
 - **Easy Offer Creation**: Users can make offers on NFTs they don't own
 - **Streamlined Acceptance**: One-tap accept for listings and offers
@@ -28,18 +29,22 @@ This document outlines the implementation of NFT listing, offering, and acceptin
 ## 🏗️ Implementation Strategies
 
 ### Strategy 1: Progressive Web App (PWA) Approach
-**Best for**: Full-featured trading experience
+**Best for**: Full-featured trading experience within weekend constraints
 
 **Implementation**:
 ```typescript
-// Single-page trading interface
+// Single-page trading interface - MVP focused
 interface TradingInterface {
-  // Main trading flow
+  // Core trading flow (Weekend MVP)
   viewNFT: (tokenId: string, contractAddress: string) => void;
   listNFT: (tokenId: string, price: string) => Promise<void>;
   makeOffer: (tokenId: string, offerAmount: string) => Promise<void>;
   acceptListing: (listingId: string) => Promise<void>;
   acceptOffer: (offerId: string) => Promise<void>;
+  
+  // Future enhancements (post-weekend)
+  // proposeTrade: (userNFT: string, targetNFT: string) => Promise<void>;
+  // bulkOperations: (operations: TradeOperation[]) => Promise<void>;
 }
 ```
 
@@ -92,12 +97,12 @@ interface FrameTrading {
 - Less rich interactions
 - Dependent on Farcaster's Frame system
 
-### Strategy 3: Hybrid Approach (Recommended)
-**Best for**: Best of both worlds
+### Strategy 3: Hybrid Approach (Recommended for Weekend MVP)
+**Best for**: Balance between functionality and weekend timeline
 
 **Implementation**:
 ```typescript
-// Hybrid trading system
+// Hybrid trading system - MVP focused
 interface HybridTrading {
   // Frame for discovery and quick actions
   frameInterface: {
@@ -106,11 +111,18 @@ interface HybridTrading {
     quickOffer: FrameAction;
   };
   
-  // PWA for detailed trading
+  // PWA for core trading (Weekend MVP)
   pwaInterface: {
-    advancedListing: (options: ListingOptions) => Promise<void>;
-    bulkOperations: (operations: TradeOperation[]) => Promise<void>;
-    portfolioManagement: () => void;
+    // Core features only
+    listNFT: (options: ListingOptions) => Promise<void>;
+    makeOffer: (options: OfferOptions) => Promise<void>;
+    acceptListing: (listingId: string) => Promise<void>;
+    acceptOffer: (offerId: string) => Promise<void>;
+    
+    // Future enhancements (post-weekend)
+    // advancedListing: (options: AdvancedListingOptions) => Promise<void>;
+    // bulkOperations: (operations: TradeOperation[]) => Promise<void>;
+    // portfolioManagement: () => void;
   };
 }
 ```
@@ -118,19 +130,19 @@ interface HybridTrading {
 **UX Flow**:
 1. **Frame Discovery** → NFT preview in Farcaster feed
 2. **Quick Actions** → List/Offer buttons in Frame
-3. **Enhanced Trading** → Deep link to PWA for advanced features
+3. **Enhanced Trading** → Deep link to PWA for core features
 4. **Social Sharing** → Share results back to Farcaster
 
 ## 🔧 Technical Implementation
 
-### Seaport Integration
+### Seaport Integration (Weekend MVP Focus)
 
 ```typescript
-// Core Seaport integration
+// Core Seaport integration - MVP scope
 import { Seaport } from '@opensea/seaport-js';
 
 interface SeaportTrading {
-  // Create listings
+  // Core listing functionality
   createListing: (params: {
     tokenId: string;
     contractAddress: string;
@@ -138,7 +150,7 @@ interface SeaportTrading {
     duration?: number;
   }) => Promise<ListingResult>;
   
-  // Create offers
+  // Core offer functionality
   createOffer: (params: {
     tokenId: string;
     contractAddress: string;
@@ -146,16 +158,20 @@ interface SeaportTrading {
     duration?: number;
   }) => Promise<OfferResult>;
   
-  // Accept transactions
+  // Core acceptance functionality
   acceptListing: (listingId: string) => Promise<TransactionResult>;
   acceptOffer: (offerId: string) => Promise<TransactionResult>;
+  
+  // Future: Advanced trading features
+  // proposeTrade: (params: TradeParams) => Promise<TradeResult>;
+  // matchOrders: (order1: Order, order2: Order) => Promise<TransactionResult>;
 }
 ```
 
 ### Mobile-Optimized Components
 
 ```typescript
-// Mobile-first trading components
+// Mobile-first trading components - MVP scope
 interface MobileTradingComponents {
   // Single-column NFT card
   NFTCard: {
@@ -227,31 +243,32 @@ interface MobileTradingComponents {
 └─────────────────────────┘
 ```
 
-## 🚀 Implementation Roadmap
+## 🚀 Implementation Roadmap (Weekend MVP)
 
-### Phase 1: Core Seaport Integration
+### Phase 1: Core Seaport Integration (Day 1)
 - [ ] Set up Seaport SDK integration
 - [ ] Implement basic listing functionality
 - [ ] Implement basic offer functionality
 - [ ] Add transaction status tracking
 
-### Phase 2: Mobile UI Components
+### Phase 2: Mobile UI Components (Day 1-2)
 - [ ] Create single-column NFT cards
 - [ ] Build simplified listing forms
 - [ ] Build quick offer interfaces
 - [ ] Add mobile-optimized buttons
 
-### Phase 3: Farcaster Integration
+### Phase 3: Farcaster Integration (Day 2)
 - [ ] Create Frame-compatible trading actions
 - [ ] Implement social sharing features
 - [ ] Add community discovery features
 - [ ] Test Frame-based trading flow
 
-### Phase 4: Advanced Features
+### Phase 4: Future Enhancements (Post-Weekend)
 - [ ] Add bulk operations
 - [ ] Implement portfolio management
 - [ ] Add trading analytics
 - [ ] Optimize gas efficiency
+- [ ] Add advanced trading features (NFT-to-NFT trades)
 
 ## 🔍 Key Considerations
 
@@ -279,7 +296,7 @@ interface MobileTradingComponents {
 - **Error recovery** with helpful messages
 - **Social features** for community engagement
 
-## 📊 Success Metrics
+## 📊 Success Metrics (Weekend MVP)
 
 ### Technical Metrics
 - **Transaction success rate**: >95%
@@ -295,11 +312,12 @@ interface MobileTradingComponents {
 
 ## 🎯 Next Steps
 
-1. **Choose implementation strategy** (recommend Hybrid approach)
+1. **Choose implementation strategy** (recommend Hybrid approach for weekend MVP)
 2. **Set up Seaport development environment**
 3. **Create mobile UI prototypes**
-4. **Implement core trading functionality**
+4. **Implement core trading functionality** (listing, offering, accepting)
 5. **Add Farcaster Frame integration**
 6. **Test and optimize for mobile performance**
+7. **Plan future enhancements** for post-weekend development
 
-This implementation will create a seamless, mobile-first NFT trading experience that leverages both Seaport's powerful trading infrastructure and Farcaster's social platform for maximum user engagement. 
+This implementation will create a seamless, mobile-first NFT trading experience that leverages both Seaport's powerful trading infrastructure and Farcaster's social platform for maximum user engagement, while staying within the weekend MVP scope. 

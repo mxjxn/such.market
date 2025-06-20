@@ -3,9 +3,9 @@
 import { useEffect, useState, memo } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { Loader2, RefreshCw } from 'lucide-react';
-import NFTGrid from '../../../components/NFTGrid';
-import FCNFTGrid from '../../../components/FCNFTGrid';
-import OwnedNFTGrid from '../../../components/OwnedNFTGrid';
+import { NFTGrid } from '../../../components/NFTGrid';
+import { FCNFTGrid } from '../../../components/FCNFTGrid';
+import { OwnedNFTGrid } from '../../../components/OwnedNFTGrid';
 import { SearchBar } from '../../../components/SearchBar';
 import useSWR from 'swr';
 
@@ -265,15 +265,15 @@ export default function CollectionPage() {
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen p-8 fade-in">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Search Bar */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 slide-up">
           <SearchBar />
         </div>
 
         {/* Collection Info */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 slide-up">
           <div className="flex justify-between items-start mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
@@ -290,52 +290,60 @@ export default function CollectionPage() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-600">
               <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Total Supply</h2>
               <p className="text-lg font-semibold text-gray-900 dark:text-white">
                 {collectionData.totalSupply || 'Unknown'}
               </p>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-              <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Contract Type</h2>
-              <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                {collectionData.contractType}
-              </p>
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-600">
+              <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Token Type</h2>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  collectionData.token_type === 'ERC721' 
+                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
+                    : collectionData.token_type === 'ERC1155'
+                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200'
+                }`}>
+                  {collectionData.token_type || 'Unknown'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* View Mode Toggle */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 slide-up">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">NFTs</h2>
             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
               <button
                 onClick={() => updateViewMode('all')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
                   viewMode === 'all'
                     ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 All NFTs
               </button>
               <button
                 onClick={() => updateViewMode('fc')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
                   viewMode === 'fc'
                     ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 Farcaster Users
               </button>
               <button
                 onClick={() => updateViewMode('owned')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
                   viewMode === 'owned'
                     ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 Items You Own
@@ -344,13 +352,15 @@ export default function CollectionPage() {
           </div>
 
           {/* NFT Grid */}
-          {viewMode === 'all' ? (
-            <NFTGrid contractAddress={contractAddress} />
-          ) : viewMode === 'fc' ? (
-            <FCNFTGrid contractAddress={contractAddress} />
-          ) : (
-            <OwnedNFTGrid contractAddress={contractAddress} />
-          )}
+          <div className="scale-in">
+            {viewMode === 'all' ? (
+              <NFTGrid contractAddress={contractAddress} />
+            ) : viewMode === 'fc' ? (
+              <FCNFTGrid contractAddress={contractAddress} />
+            ) : (
+              <OwnedNFTGrid contractAddress={contractAddress} />
+            )}
+          </div>
         </div>
       </div>
     </div>

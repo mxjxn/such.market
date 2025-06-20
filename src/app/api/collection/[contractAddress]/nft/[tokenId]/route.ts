@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Alchemy, Network, NftContract } from 'alchemy-sdk';
+import { Alchemy, Network } from 'alchemy-sdk';
 
 // Initialize Alchemy SDK
 const alchemy = new Alchemy({
@@ -10,16 +10,6 @@ const alchemy = new Alchemy({
 // Simple in-memory rate limiter
 const rateLimiter = new Map<string, number>();
 const RATE_LIMIT_MS = 1000; // 1 second between requests
-
-// Extended NFT type to include metadata
-interface NFTWithMetadata extends NftContract {
-  metadata?: {
-    name?: string;
-    description?: string;
-    image?: string;
-    attributes?: Array<{ trait_type: string; value: string }>;
-  };
-}
 
 export async function GET(
   request: NextRequest,
@@ -64,16 +54,56 @@ export async function GET(
 
     // Fetch NFT metadata
     console.log('📡 Fetching NFT metadata from Alchemy:', { contractAddress, tokenId });
-    const metadata = await alchemy.nft.getNftMetadata(contractAddress, tokenId) as NFTWithMetadata;
+    const nftData = await alchemy.nft.getNftMetadata(contractAddress, tokenId);
 
-    console.log('✅ Metadata Response:', {
+    console.log('📝 Raw NFT Data Structure:', {
       tokenId,
-      hasMetadata: !!metadata.metadata,
-      hasImage: !!metadata.metadata?.image,
-      hasName: !!metadata.metadata?.name,
+      hasName: !!nftData.name,
+      hasDescription: !!nftData.description,
+      hasImage: !!nftData.image,
+      hasRawMetadata: !!nftData.raw?.metadata,
+      hasCollection: !!nftData.collection,
+      keys: Object.keys(nftData),
     });
 
-    return NextResponse.json(metadata);
+    // Extract metadata from the correct fields with proper type safety
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawMetadata = nftData.raw?.metadata as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const imageData = nftData.image as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const collectionData = nftData.collection as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ownersData = (nftData as any).owners;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mediaData = (nftData as any).media;
+
+    const extractedMetadata = {
+      name: nftData.name || rawMetadata?.name || `NFT #${tokenId}`,
+      description: nftData.description || rawMetadata?.description || 'No description available',
+      image: imageData?.cachedUrl || imageData?.originalUrl || rawMetadata?.image || null,
+      thumbnail: imageData?.thumbnailUrl || imageData?.cachedUrl || imageData?.originalUrl || null,
+      attributes: rawMetadata?.attributes || [],
+      collection: collectionData?.name || null,
+      owners: ownersData || [],
+      media: mediaData || [],
+    };
+
+    console.log('✅ Extracted Metadata:', {
+      tokenId,
+      name: extractedMetadata.name,
+      hasDescription: !!extractedMetadata.description,
+      hasImage: !!extractedMetadata.image,
+      hasThumbnail: !!extractedMetadata.thumbnail,
+      attributeCount: extractedMetadata.attributes?.length || 0,
+      hasCollection: !!extractedMetadata.collection,
+      ownerCount: extractedMetadata.owners?.length || 0,
+    });
+
+    return NextResponse.json({
+      ...nftData,
+      metadata: extractedMetadata,
+    });
   } catch (error) {
     console.error('❌ Error fetching NFT metadata:', {
       error,

@@ -7,8 +7,14 @@ interface NFTOwnerProps {
   tokenId: string;
 }
 
+interface OwnerInfo {
+  owner: string | null;
+  tokenType: 'ERC721' | 'ERC1155' | null;
+  balance?: number | null;
+}
+
 export default function NFTOwner({ contractAddress, tokenId }: NFTOwnerProps) {
-  const [owner, setOwner] = useState<string | null>(null);
+  const [ownerInfo, setOwnerInfo] = useState<OwnerInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +30,7 @@ export default function NFTOwner({ contractAddress, tokenId }: NFTOwnerProps) {
           // Don't retry on 404s - this means the NFT might not exist or be transferable
           if (response.status === 404) {
             if (isMounted) {
-              setOwner(null);
+              setOwnerInfo({ owner: null, tokenType: null });
               setError(null);
             }
             return;
@@ -39,7 +45,11 @@ export default function NFTOwner({ contractAddress, tokenId }: NFTOwnerProps) {
         }
         const data = await response.json();
         if (isMounted) {
-          setOwner(data.owner);
+          setOwnerInfo({
+            owner: data.owner,
+            tokenType: data.tokenType,
+            balance: data.balance,
+          });
           setError(null);
         }
       } catch (err) {
@@ -78,7 +88,7 @@ export default function NFTOwner({ contractAddress, tokenId }: NFTOwnerProps) {
     );
   }
 
-  if (!owner) {
+  if (!ownerInfo?.owner) {
     return (
       <div className="text-sm text-gray-500 dark:text-gray-400">
         Not transferable
@@ -87,8 +97,32 @@ export default function NFTOwner({ contractAddress, tokenId }: NFTOwnerProps) {
   }
 
   return (
-    <div className="text-sm text-gray-600 dark:text-gray-300">
-      Owner: {truncateAddress(owner)}
+    <div className="space-y-1">
+      {/* Token Type */}
+      {ownerInfo.tokenType && (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-gray-500">Type:</span>
+          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+            ownerInfo.tokenType === 'ERC721' 
+              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
+              : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+          }`}>
+            {ownerInfo.tokenType}
+          </span>
+        </div>
+      )}
+      
+      {/* Owner Address */}
+      <div className="text-sm text-gray-600 dark:text-gray-300">
+        Owner: {truncateAddress(ownerInfo.owner)}
+      </div>
+      
+      {/* Balance for ERC-1155 */}
+      {ownerInfo.tokenType === 'ERC1155' && ownerInfo.balance !== null && (
+        <div className="text-xs text-gray-500 dark:text-gray-400">
+          Balance: {ownerInfo.balance} tokens
+        </div>
+      )}
     </div>
   );
 } 

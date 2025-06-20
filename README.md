@@ -2,7 +2,29 @@
 
 # Such.Market 🎨
 
-A Farcaster Mini App for exploring and discovering NFT collections on Base. Built with Next.js, TypeScript, and Supabase with advanced caching and optimized database architecture.
+A Farcaster Mini App for trading NFTs. Built with Next.js, TypeScript, and Supabase with advanced caching and optimized database architecture.
+
+## Goals
+
+[ ] Stage One
+- [x] Browse NFT collections by name or contract address
+- [x] Load pretty quickly
+- [ ] Offer ERC-20s and ETH for NFTs
+- [ ] List NFTs for ETH or ERC-20s
+- [ ] Feed of recent listings and offers
+- [ ] Notifications for offers
+
+[ ] Stage Two
+- [ ] Auctions
+- [ ] Artist coins
+- [ ] Follow artists (notifications on mints and auctions)
+
+[ ] Stage Three
+- [ ] Deploy new collections & mint your NFTs
+- [ ] Trade bundles (any combination of assets, single for multiple, nft for nft, etc)
+- [ ] Advanced profiles
+- [ ] Creator Tools
+
 
 ## Features
 

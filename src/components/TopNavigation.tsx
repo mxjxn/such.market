@@ -64,15 +64,15 @@ export function TopNavigation() {
   }, []);
 
   return (
-    <nav className="w-full bg-gray-900/80 backdrop-blur-sm border-b border-gray-700 sticky top-0 z-40">
+    <nav className="w-full bg-gray-900/80 backdrop-blur-sm border-b border-gray-700 sticky top-0 z-40 transition-all duration-300">
       <div className="max-w-4xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Left side - Home button */}
           <Link 
             href="/" 
-            className="flex items-center gap-2 text-white hover:text-blue-400 transition-colors duration-200"
+            className="flex items-center gap-2 text-white hover:text-blue-400 transition-all duration-200 hover-lift group"
           >
-            <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
+            <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center group-hover:bg-blue-400 transition-all duration-200 hover-lift">
               <Home className="w-4 h-4" />
             </div>
             <span className="font-semibold">CryptoArt</span>
@@ -83,16 +83,16 @@ export function TopNavigation() {
             {isAuthenticated ? (
               <Link
                 href="/profile"
-                className="flex items-center gap-2 text-white hover:text-blue-400 transition-colors duration-200"
+                className="flex items-center gap-2 text-white hover:text-blue-400 transition-all duration-200 hover-lift group"
               >
                 {userProfile?.pfp_url || frameContext.context?.user?.pfpUrl ? (
                   <img
                     src={userProfile?.pfp_url || frameContext.context?.user?.pfpUrl}
                     alt="Profile"
-                    className="w-8 h-8 rounded-full object-contain aspect-square border-2 border-gray-600 hover:border-blue-400 transition-colors duration-200"
+                    className="w-8 h-8 rounded-full object-contain aspect-square border-2 border-gray-600 group-hover:border-blue-400 transition-all duration-200"
                   />
                 ) : (
-                  <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center hover:bg-gray-500 transition-colors duration-200">
+                  <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center group-hover:bg-gray-500 transition-all duration-200 hover-lift">
                     <User className="w-4 h-4" />
                   </div>
                 )}
@@ -107,9 +107,9 @@ export function TopNavigation() {
               <button
                 onClick={handleSignIn}
                 disabled={isSigningIn}
-                className="flex items-center gap-2 text-gray-400 hover:text-blue-400 transition-colors duration-200 disabled:opacity-50"
+                className="flex items-center gap-2 text-gray-400 hover:text-blue-400 transition-all duration-200 disabled:opacity-50 hover-lift group"
               >
-                <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center hover:bg-gray-500 transition-colors duration-200">
+                <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center group-hover:bg-gray-500 transition-all duration-200 hover-lift">
                   <User className="w-4 h-4" />
                 </div>
                 <span className="hidden sm:inline text-sm">
