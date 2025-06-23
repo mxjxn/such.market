@@ -16,14 +16,17 @@ A Farcaster Mini App for trading NFTs. Built with Next.js, TypeScript, and Supab
 
 [ ] Stage Two
 - [ ] Auctions
-- [ ] Artist coins
+- [ ] Artist coins (byoc or deploy new)
+- [ ] Hypersubs
 - [ ] Follow artists (notifications on mints and auctions)
 
 [ ] Stage Three
 - [ ] Deploy new collections & mint your NFTs
 - [ ] Trade bundles (any combination of assets, single for multiple, nft for nft, etc)
 - [ ] Advanced profiles
-- [ ] Creator Tools
+
+[ ] Stage Four
+- Advanced Creator Tools
 
 
 ## Features
