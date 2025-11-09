@@ -67,6 +67,9 @@ A Farcaster Mini App for trading NFTs. Built with Next.js, TypeScript, and Supab
 - **[Seaport Integration Plan](docs/seaport-integration-plan.md)** - Comprehensive Seaport protocol integration for NFT trading
 - **[Seaport Testing Guide](docs/seaport-testing-guide.md)** - Testing strategies for Seaport orders and fulfillments
 
+### 🧪 Testing
+- **[Testing Guide](docs/testing-guide.md)** - Comprehensive testing strategies, tools, and best practices
+
 ### 🚀 Getting Started
 - **[Quick Start Guide](#getting-started)** - Setup and deployment instructions
 - **[Environment Configuration](#environment-setup)** - Required API keys and configuration
