@@ -73,20 +73,20 @@ A Farcaster Mini App for trading NFTs. Built with Next.js, TypeScript, and Supab
 
 ## Recent Updates ✅
 
-### Homepage Revamp (December 2024)
+### Homepage Revamp
 - **New homepage** with hero section, featured collections, and latest trades
 - **Admin-configurable hero CTAs** via site settings
 - **Featured collections** with manual curation and algorithmic fallback
 - **Latest trades feed** showing recent Seaport fulfillments
 - **Farcaster demo** moved to `/example` endpoint for reference
 
-### Notifications System (December 2024)
+### Notifications System
 - **In-app notifications** for offers received, accepted, and listing sales
 - **Notification bell** in top navigation with unread count badge
 - **Seaport order tracking** with full order history
 - **Automatic notifications** when offers are created
 
-### Smart Profile Prioritization (December 2024)
+### Smart Profile Prioritization
 - **Collection-level engagement tracking** for efficient prioritization
 - **Priority scoring algorithm** based on token count, engagement, and featured status
 - **Redis-backed view counters** for real-time engagement metrics
