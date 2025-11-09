@@ -7,6 +7,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useFrame } from '~/components/providers/FrameProvider';
 import sdk from '@farcaster/frame-sdk';
 import { getCsrfToken } from 'next-auth/react';
+import { NotificationsDropdown } from './NotificationsDropdown';
 
 interface UserProfile {
   fid: number;
@@ -78,8 +79,9 @@ export function TopNavigation() {
             <span className="font-semibold">CryptoArt</span>
           </Link>
 
-          {/* Right side - Profile icon */}
+          {/* Right side - Notifications and Profile */}
           <div className="flex items-center gap-4">
+            {isAuthenticated && <NotificationsDropdown />}
             {isAuthenticated ? (
               <Link
                 href="/profile"

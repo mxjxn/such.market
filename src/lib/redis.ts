@@ -62,6 +62,26 @@ export const CACHE_KEYS = {
   // Collection stats (L2 - Warm)
   collectionStats: (address: string) => 
     `${CACHE_APP_NAME}:collections:${address.toLowerCase()}:stats`,
+  
+  // User prioritized collections (L1 - Hot, 5 min TTL)
+  userPrioritizedCollections: (fid: number) => 
+    `${CACHE_APP_NAME}:users:${fid}:prioritized_collections`,
+  
+  // Collection engagement scores (L2 - Warm, 30 min TTL)
+  collectionEngagement: (collectionId: string) => 
+    `${CACHE_APP_NAME}:collections:engagement:${collectionId}`,
+  
+  // User all collections (L3 - Cold, 24 hour TTL)
+  userAllCollections: (fid: number) => 
+    `${CACHE_APP_NAME}:users:${fid}:all_collections`,
+  
+  // Collection view counters (real-time, synced to DB periodically)
+  collectionViews24h: (collectionId: string) => 
+    `${CACHE_APP_NAME}:collections:${collectionId}:views:24h`,
+  collectionViews7d: (collectionId: string) => 
+    `${CACHE_APP_NAME}:collections:${collectionId}:views:7d`,
+  collectionViews30d: (collectionId: string) => 
+    `${CACHE_APP_NAME}:collections:${collectionId}:views:30d`,
 } as const;
 
 // Cache data types

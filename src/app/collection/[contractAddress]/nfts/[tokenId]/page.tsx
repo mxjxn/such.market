@@ -1,5 +1,6 @@
 import React from 'react';
 import { NFTTransition } from '~/components/NFTTransition';
+import { OfferForm } from '~/components/OfferForm';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -224,9 +225,16 @@ export default async function NFTPage({ params }: { params: Promise<{ contractAd
           ) : (
             <>
               {listing.isListed && (
-                <div className="text-green-600 font-semibold">For sale: {listing.price} {listing.currency}</div>
+                <div className="text-green-600 font-semibold mb-2">For sale: {listing.price} {listing.currency}</div>
               )}
-              <button className="w-full bg-purple-600 text-white py-2 rounded font-bold transition-colors duration-200 hover:bg-purple-700">Make an Offer</button>
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Make an Offer</h3>
+                <OfferForm 
+                  contractAddress={contractAddress}
+                  tokenId={tokenId}
+                  ownerAddress={ownerInfo.owner}
+                />
+              </div>
             </>
           )}
         </div>

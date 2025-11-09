@@ -96,6 +96,18 @@ export default function CollectionPage() {
   const [isPopulating, setIsPopulating] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
+  // Track collection view for engagement metrics
+  useEffect(() => {
+    if (contractAddress) {
+      fetch(`/api/collection/${contractAddress}/view`, {
+        method: 'POST',
+      }).catch((error) => {
+        console.error('Error tracking collection view:', error);
+        // Don't show error to user, just log it
+      });
+    }
+  }, [contractAddress]);
+
   // Check for filter parameter in URL
   useEffect(() => {
     const filter = searchParams.get('filter');

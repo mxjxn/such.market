@@ -9,10 +9,10 @@ A Farcaster Mini App for trading NFTs. Built with Next.js, TypeScript, and Supab
 [ ] Stage One
 - [x] Browse NFT collections by name or contract address
 - [x] Load pretty quickly
-- [ ] Offer ERC-20s and ETH for NFTs
+- [x] Offer ERC-20s and ETH for NFTs
 - [ ] List NFTs for ETH or ERC-20s
-- [ ] Feed of recent listings and offers
-- [ ] Notifications for offers
+- [x] Feed of recent listings and offers
+- [x] Notifications for offers
 
 [ ] Stage Two
 - [ ] Auctions
@@ -23,7 +23,8 @@ A Farcaster Mini App for trading NFTs. Built with Next.js, TypeScript, and Supab
 [ ] Stage Three
 - [ ] Deploy new collections & mint your NFTs
 - [ ] Trade bundles (any combination of assets, single for multiple, nft for nft, etc)
-- [ ] Advanced profiles
+- [x] Advanced profiles with smart prioritization
+- [x] Homepage with featured collections and latest trades
 
 [ ] Stage Four
 - Advanced Creator Tools
@@ -33,11 +34,15 @@ A Farcaster Mini App for trading NFTs. Built with Next.js, TypeScript, and Supab
 
 - **Browse NFT collections** on Base with real-time updates
 - **View detailed NFT metadata** and traits with efficient filtering
+- **Homepage** with hero section, featured collections, and latest trades feed
+- **Notifications system** for offers received, accepted, and listing sales
+- **Smart profile prioritization** using collection-level engagement tracking
 - **Advanced caching system** with 95%+ hit rate and <100ms response times
 - **Event-driven cache invalidation** for automatic data consistency
 - **Real-time performance monitoring** and analytics dashboard
 - **Farcaster Frame integration** for sharing NFTs
 - **Mobile-first design** optimized for Farcaster's single-column layout
+- **Seaport integration** for NFT offers and trading
 
 ## Tech Stack
 
@@ -58,27 +63,39 @@ A Farcaster Mini App for trading NFTs. Built with Next.js, TypeScript, and Supab
 ### 🎯 Farcaster Integration
 - **[FC Collection System](docs/fc-collection-system.md)** - Farcaster-focused collection loading and community features
 
+### 🛒 Trading & Notifications
+- **[Seaport Integration Plan](docs/seaport-integration-plan.md)** - Comprehensive Seaport protocol integration for NFT trading
+- **[Seaport Testing Guide](docs/seaport-testing-guide.md)** - Testing strategies for Seaport orders and fulfillments
+
 ### 🚀 Getting Started
 - **[Quick Start Guide](#getting-started)** - Setup and deployment instructions
 - **[Environment Configuration](#environment-setup)** - Required API keys and configuration
 
-## Recent Optimizations ✅
+## Recent Updates ✅
 
-### Phase 1: Redis Configuration
-- Unified Redis environment variables
-- Hierarchical cache strategy (hot/warm/cold data)
-- Cache warming and intelligent management
+### Homepage Revamp (December 2024)
+- **New homepage** with hero section, featured collections, and latest trades
+- **Admin-configurable hero CTAs** via site settings
+- **Featured collections** with manual curation and algorithmic fallback
+- **Latest trades feed** showing recent Seaport fulfillments
+- **Farcaster demo** moved to `/example` endpoint for reference
 
-### Phase 2: Database Schema
-- Normalized ownership tracking with dedicated tables
-- Automatic data consistency through PostgreSQL triggers
-- 3-5x faster database queries with proper indexing
+### Notifications System (December 2024)
+- **In-app notifications** for offers received, accepted, and listing sales
+- **Notification bell** in top navigation with unread count badge
+- **Seaport order tracking** with full order history
+- **Automatic notifications** when offers are created
 
-### Phase 3: Advanced Caching
-- **Event-driven cache invalidation** with automatic management
-- **Real-time cache analytics** with performance monitoring
-- **Comprehensive performance testing** framework
-- **95%+ cache hit rate** with <100ms response times
+### Smart Profile Prioritization (December 2024)
+- **Collection-level engagement tracking** for efficient prioritization
+- **Priority scoring algorithm** based on token count, engagement, and featured status
+- **Redis-backed view counters** for real-time engagement metrics
+- **Optimized profile loading** showing top collections first
+
+### Previous Optimizations
+- **Phase 1**: Redis Configuration - Unified Redis environment variables, hierarchical cache strategy
+- **Phase 2**: Database Schema - Normalized ownership tracking, automatic data consistency
+- **Phase 3**: Advanced Caching - Event-driven invalidation, real-time analytics, 95%+ cache hit rate
 
 ## Getting Started
 
@@ -153,13 +170,22 @@ curl -X POST "http://localhost:3000/api/admin/cache/test/performance" \
 
 The application uses Supabase (PostgreSQL) with an optimized normalized schema:
 
-- `collections`: NFT collection metadata
+### Core Tables
+- `collections`: NFT collection metadata with featured flag
 - `nfts`: Individual NFT data with ownership tracking
 - `fc_users`: Farcaster user data and profiles
 - `nft_ownership`: Normalized ownership records
 - `user_collections`: Auto-maintained user collection summaries
 - `wallet_collection_mapping`: Wallet-to-collection relationships
 - `collection_traits`: Trait data for efficient filtering
+
+### New Tables (December 2024)
+- `site_settings`: Admin-configurable site content (hero CTAs, etc.)
+- `seaport_orders`: Seaport order tracking (listings, offers, auctions)
+- `seaport_order_items`: Normalized order items for efficient querying
+- `seaport_fulfillments`: Trade fulfillment records for latest trades feed
+- `seaport_notifications`: In-app notifications for offers and trades
+- `collection_engagement`: Collection-level engagement metrics for smart prioritization
 
 See `db/migrations/` for the complete schema and optimization details in the [Database Optimization Analysis](docs/database-optimization-analysis.md).
 
