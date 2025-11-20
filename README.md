@@ -9,9 +9,9 @@ A Farcaster Mini App for trading NFTs. Built with Next.js, TypeScript, and Supab
 [ ] Stage One
 - [x] Browse NFT collections by name or contract address
 - [x] Load pretty quickly
-- [x] Offer ERC-20s and ETH for NFTs
-- [ ] List NFTs for ETH or ERC-20s
-- [x] Feed of recent listings and offers
+- [x] Offer ERC-20s and ETH for NFTs (via Seaport)
+- [ ] List NFTs for ETH or ERC-20s (Seaport listings in progress)
+- [x] Feed of recent listings and offers (via Seaport trades)
 - [x] Notifications for offers
 
 [ ] Stage Two
@@ -42,11 +42,11 @@ A Farcaster Mini App for trading NFTs. Built with Next.js, TypeScript, and Supab
 - **Real-time performance monitoring** and analytics dashboard
 - **Farcaster Frame integration** for sharing NFTs
 - **Mobile-first design** optimized for Farcaster's single-column layout
-- **Seaport integration** for NFT offers and trading
+- **Seaport integration** for NFT offers and trading (offers implemented, listings in progress)
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Frontend**: Next.js 15.0.3, React 18, TypeScript, Tailwind CSS
 - **Backend**: Next.js API Routes with advanced caching
 - **Database**: Supabase (PostgreSQL) with normalized schema
 - **Caching**: Upstash Redis with hierarchical cache strategy
