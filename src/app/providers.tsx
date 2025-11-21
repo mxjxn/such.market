@@ -12,14 +12,27 @@ const WagmiProvider = dynamic(
   }
 );
 
+/**
+ * Providers Component
+ *
+ * Provider nesting order (important to avoid race conditions):
+ * 1. FrameProvider - Must be outermost to initialize Farcaster SDK first
+ * 2. SessionProvider - NextAuth session management
+ * 3. WagmiProvider - Wallet connection (uses farcasterFrame() connector)
+ *
+ * This order ensures:
+ * - Frame SDK loads before Wagmi tries to use farcasterFrame() connector
+ * - Session is available before wallet connection attempts
+ * - All providers are ready before children render
+ */
 export function Providers({ session, children }: { session: Session | null, children: React.ReactNode }) {
   return (
-    <SessionProvider session={session}>
-      <WagmiProvider>
-        <FrameProvider>
+    <FrameProvider>
+      <SessionProvider session={session}>
+        <WagmiProvider>
           {children}
-        </FrameProvider>
-      </WagmiProvider>
-    </SessionProvider>
+        </WagmiProvider>
+      </SessionProvider>
+    </FrameProvider>
   );
 }
