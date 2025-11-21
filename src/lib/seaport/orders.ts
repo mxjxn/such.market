@@ -20,7 +20,7 @@ export function getSeaportInstance(rpcUrl?: string): Seaport {
       contractAddress: SEAPORT_CONFIG.SEAPORT_V1_6,
     },
     conduitKeyToConduit: {
-      [SEAPORT_CONFIG.DEFAULT_CONDUIT_KEY]: '0x1E0049783F008A0085193E00003D3cdF8dFCb9c1', // OpenSea conduit
+      [SEAPORT_CONFIG.DEFAULT_CONDUIT_KEY]: '0x1E0049783F008A0085193E00003D00cd54003c71', // OpenSea conduit (Base mainnet)
     },
   });
 }
@@ -57,13 +57,14 @@ export function weiToEth(weiAmount: string): string {
 
 /**
  * Create an offer order (ETH for NFT)
- * 
+ *
  * @param offererAddress - Address making the offer
  * @param nftContractAddress - Address of the NFT contract
  * @param tokenId - Token ID of the NFT
  * @param offerAmountEth - Offer amount in ETH (e.g., "0.001")
  * @param durationDays - Order duration in days (default: 7)
  * @returns Order components ready for signing
+ * @throws Error if validation fails or network issues occur
  */
 export async function createOfferOrder(
   offererAddress: string,
@@ -72,13 +73,42 @@ export async function createOfferOrder(
   offerAmountEth: string,
   durationDays: number = SEAPORT_CONFIG.DEFAULT_ORDER_DURATION_DAYS
 ): Promise<OrderComponents> {
-  const seaport = getSeaportInstance();
-  
-  // Convert ETH to wei
-  const offerAmountWei = ethToWei(offerAmountEth);
-  
-  // Get current counter for the offerer
-  const counter = await seaport.getCounter(offererAddress);
+  try {
+    // Validate inputs
+    if (!offererAddress || !/^0x[a-fA-F0-9]{40}$/.test(offererAddress)) {
+      throw new Error(`Invalid offerer address: ${offererAddress}`);
+    }
+
+    if (!nftContractAddress || !/^0x[a-fA-F0-9]{40}$/.test(nftContractAddress)) {
+      throw new Error(`Invalid NFT contract address: ${nftContractAddress}`);
+    }
+
+    if (!tokenId || tokenId.length === 0) {
+      throw new Error('Token ID is required');
+    }
+
+    const seaport = getSeaportInstance();
+
+    // Convert ETH to wei with error handling
+    let offerAmountWei: string;
+    try {
+      offerAmountWei = ethToWei(offerAmountEth);
+    } catch (error) {
+      throw new Error(`Invalid offer amount: ${offerAmountEth}. Must be a valid ETH amount.`);
+    }
+
+    // Get current counter for the offerer with retry
+    let counter: bigint;
+    try {
+      counter = await seaport.getCounter(offererAddress);
+    } catch (error) {
+      console.error('Failed to fetch counter:', error);
+      throw new Error(
+        `Failed to fetch order counter for address ${offererAddress}. ` +
+        `This could be due to network issues or an invalid address. ` +
+        `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   
   // Calculate timestamps
   const startTime = Math.floor(Date.now() / 1000);
@@ -148,8 +178,15 @@ export async function createOfferOrder(
     counter: counter.toString(),
     totalOriginalConsiderationItems: orderInput.consideration.length.toString(),
   };
-  
-  return orderComponents;
+
+    return orderComponents;
+  } catch (error) {
+    console.error('Error creating offer order:', error);
+    if (error instanceof Error) {
+      throw error; // Re-throw if it's already a properly formatted error
+    }
+    throw new Error(`Failed to create offer order: ${String(error)}`);
+  }
 }
 
 /**

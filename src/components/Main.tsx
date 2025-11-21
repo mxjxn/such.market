@@ -71,17 +71,14 @@ export default function Main() {
     }
   }, [frameContext.context?.user?.fid]);
 
-  // Notify Farcaster that the app is ready
+  // ✅ NOTE: sdk.actions.ready() is called in FrameProvider - DO NOT call it here
   useEffect(() => {
-    console.log('🔄 Main component mounted, checking frame context:', {
+    console.log('🔄 Main component mounted, frame context status:', {
       isSDKLoaded: frameContext.isSDKLoaded,
       hasContext: !!frameContext.context,
       isConnected,
       chainId
     });
-    if (frameContext.isSDKLoaded) {
-      sdk.actions.ready();
-    }
   }, [frameContext.isSDKLoaded, frameContext.context, isConnected, chainId]);
 
   return (

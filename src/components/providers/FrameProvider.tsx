@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import sdk, { type Context, type FrameNotificationDetails, AddMiniApp } from "@farcaster/frame-sdk";
 import { createStore } from "mipd";
 import React from "react";
+import { FrameLoading } from "~/components/ui/LoadingSkeleton";
 
 interface FrameContextType {
   isSDKLoaded: boolean;
@@ -15,6 +16,8 @@ interface FrameContextType {
   lastEvent: string;
   addFrame: () => Promise<void>;
   addFrameResult: string;
+  sdkError: string | null;
+  loadingTimeout: boolean;
 }
 
 const FrameContext = React.createContext<FrameContextType | undefined>(undefined);
@@ -26,6 +29,8 @@ export function useFrame() {
   const [notificationDetails, setNotificationDetails] = useState<FrameNotificationDetails | null>(null);
   const [lastEvent, setLastEvent] = useState("");
   const [addFrameResult, setAddFrameResult] = useState("");
+  const [sdkError, setSDKError] = useState<string | null>(null);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
 
   // SDK actions only work in mini app clients, so this pattern supports browser actions as well
   const openUrl = useCallback(async (url: string) => {
@@ -67,68 +72,89 @@ export function useFrame() {
   }, []);
 
   useEffect(() => {
+    // Set timeout for SDK loading (5 seconds)
+    const timeout = setTimeout(() => {
+      if (!isSDKLoaded) {
+        console.warn('⚠️  Farcaster SDK failed to load within 5 seconds. Continuing with limited functionality.');
+        setLoadingTimeout(true);
+        setSDKError('SDK initialization timed out');
+      }
+    }, 5000);
+
     const load = async () => {
-      const context = await sdk.context;
-      setContext(context);
-      setIsSDKLoaded(true);
+      try {
+        console.log('📡 Loading Farcaster SDK context...');
+        const context = await sdk.context;
+        setContext(context);
+        setIsSDKLoaded(true);
+        clearTimeout(timeout);
+        console.log('✅ Farcaster SDK loaded successfully');
 
-      // Set up event listeners
-      sdk.on("frameAdded", ({ notificationDetails }) => {
-        console.log("Frame added", notificationDetails);
-        setAdded(true);
-        setNotificationDetails(notificationDetails ?? null);
-        setLastEvent("Frame added");
-      });
+        // Set up event listeners
+        sdk.on("frameAdded", ({ notificationDetails }) => {
+          console.log("Frame added", notificationDetails);
+          setAdded(true);
+          setNotificationDetails(notificationDetails ?? null);
+          setLastEvent("Frame added");
+        });
 
-      sdk.on("frameAddRejected", ({ reason }) => {
-        console.log("Frame add rejected", reason);
-        setAdded(false);
-        setLastEvent(`Frame add rejected: ${reason}`);
-      });
+        sdk.on("frameAddRejected", ({ reason }) => {
+          console.log("Frame add rejected", reason);
+          setAdded(false);
+          setLastEvent(`Frame add rejected: ${reason}`);
+        });
 
-      sdk.on("frameRemoved", () => {
-        console.log("Frame removed");
-        setAdded(false);
-        setLastEvent("Frame removed");
-      });
+        sdk.on("frameRemoved", () => {
+          console.log("Frame removed");
+          setAdded(false);
+          setLastEvent("Frame removed");
+        });
 
-      sdk.on("notificationsEnabled", ({ notificationDetails }) => {
-        console.log("Notifications enabled", notificationDetails);
-        setNotificationDetails(notificationDetails ?? null);
-        setLastEvent("Notifications enabled");
-      });
+        sdk.on("notificationsEnabled", ({ notificationDetails }) => {
+          console.log("Notifications enabled", notificationDetails);
+          setNotificationDetails(notificationDetails ?? null);
+          setLastEvent("Notifications enabled");
+        });
 
-      sdk.on("notificationsDisabled", () => {
-        console.log("Notifications disabled");
-        setNotificationDetails(null);
-        setLastEvent("Notifications disabled");
-      });
+        sdk.on("notificationsDisabled", () => {
+          console.log("Notifications disabled");
+          setNotificationDetails(null);
+          setLastEvent("Notifications disabled");
+        });
 
-      sdk.on("primaryButtonClicked", () => {
-        console.log("Primary button clicked");
-        setLastEvent("Primary button clicked");
-      });
+        sdk.on("primaryButtonClicked", () => {
+          console.log("Primary button clicked");
+          setLastEvent("Primary button clicked");
+        });
 
-      // Call ready action
-      console.log("Calling ready");
-      sdk.actions.ready({});
+        // ✅ Call ready action ONCE (this is the ONLY place it should be called)
+        console.log("Calling sdk.actions.ready()");
+        sdk.actions.ready({});
 
-      // Set up MIPD Store
-      const store = createStore();
-      store.subscribe((providerDetails) => {
-        console.log("PROVIDER DETAILS", providerDetails);
-      });
+        // Set up MIPD Store
+        const store = createStore();
+        store.subscribe((providerDetails) => {
+          console.log("PROVIDER DETAILS", providerDetails);
+        });
+      } catch (error) {
+        console.error('❌ Error loading Farcaster SDK:', error);
+        setSDKError(error instanceof Error ? error.message : 'Unknown error occurred');
+        setLoadingTimeout(true);
+        clearTimeout(timeout);
+      }
     };
 
-    if (sdk && !isSDKLoaded) {
-      console.log("Calling load");
-      setIsSDKLoaded(true);
+    if (sdk && !isSDKLoaded && !loadingTimeout) {
       load();
-      return () => {
-        sdk.removeAllListeners();
-      };
     }
-  }, [isSDKLoaded]);
+
+    return () => {
+      clearTimeout(timeout);
+      if (isSDKLoaded) {
+        sdk.removeAllListeners();
+      }
+    };
+  }, [isSDKLoaded, loadingTimeout]);
 
   return {
     isSDKLoaded,
@@ -140,19 +166,37 @@ export function useFrame() {
     addFrameResult,
     openUrl,
     close,
+    sdkError,
+    loadingTimeout,
   };
 }
 
 export function FrameProvider({ children }: { children: React.ReactNode }) {
   const frameContext = useFrame();
 
-  if (!frameContext.isSDKLoaded) {
-    return <div>Loading...</div>;
+  // Show loading state with timeout
+  if (!frameContext.isSDKLoaded && !frameContext.loadingTimeout) {
+    return <FrameLoading message="Connecting to Farcaster..." />;
   }
 
+  // If SDK failed to load, log warning but continue rendering
+  if (frameContext.sdkError && !frameContext.isSDKLoaded) {
+    console.warn('⚠️  Continuing without full Farcaster functionality');
+  }
+
+  // Always render children (even if SDK didn't load properly)
   return (
     <FrameContext.Provider value={frameContext}>
       {children}
     </FrameContext.Provider>
   );
-} 
+}
+
+// Export hook to access Frame context
+export function useFrameContext() {
+  const context = React.useContext(FrameContext);
+  if (!context) {
+    throw new Error('useFrameContext must be used within a FrameProvider');
+  }
+  return context;
+}
