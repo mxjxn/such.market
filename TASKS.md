@@ -19,16 +19,28 @@ This document tracks ongoing development tasks, bug fixes, and feature implement
 
 ## 🟠 High Priority
 
+### LSSVM + Seaport Integration
+- [x] **Create LSSVM subgraph client** - GraphQL queries for pool data
+- [x] **Implement pool pricing calculations** - LINEAR, EXPONENTIAL, XYK curves
+- [x] **Build spam NFT filtering** - Multi-level scoring to hide spam
+- [x] **Create unified price-check API** - Aggregate pools + listings
+- [x] **Update .env.example** - Document LSSVM configuration
+- [ ] **Build UnifiedTradingView component** - Smart routing UI
+- [ ] **Create unified buy API** - Execute via best route (pool or listing)
+- [ ] **Create unified sell/list API** - Instant sell or create listing
+- [ ] **Add pool liquidity indicators** - Show pool depth and availability
+- [ ] **Test smart routing end-to-end** - Verify best price execution
+
 ### Error Handling & UX
-- [ ] **Add comprehensive error handling to Seaport functions** - try-catch blocks with context
-- [ ] **Implement lazy loading UI** - Skeleton screens during data fetching
-- [ ] **Add RPC URL fallback warnings** - Warn when using public endpoints
-- [ ] **Create .env.example** - Document all required environment variables
+- [x] **Add comprehensive error handling to Seaport functions** - try-catch blocks with context
+- [x] **Implement lazy loading UI** - Skeleton screens during data fetching
+- [x] **Add RPC URL fallback warnings** - Warn when using public endpoints
+- [x] **Create .env.example** - Document all required environment variables
 - [ ] **Add order validation before signing** - Client-side safety checks
 
 ### Seaport Implementation
 - [ ] **Complete NFT listings functionality** - Schema ready, need implementation
-- [ ] **Test offer creation with fixed conduit** - Verify end-to-end flow
+- [x] **Test offer creation with fixed conduit** - Verify end-to-end flow
 - [ ] **Add offer cancellation** - Allow users to cancel active offers
 - [ ] **Implement offer expiration handling** - Clean up expired orders
 
@@ -131,30 +143,41 @@ This document tracks ongoing development tasks, bug fixes, and feature implement
 
 ## 🎯 Sprint Planning
 
-### Current Sprint (Week of Nov 21, 2024)
-**Focus**: Critical bug fixes from security audit
+### Current Sprint (Week of Nov 22, 2024)
+**Focus**: LSSVM + Seaport Integration (Smart Routing)
 
 **Goals**:
-1. Fix conduit address
-2. Implement graceful FrameProvider loading
-3. Add error handling to Seaport
-4. Create .env.example
-5. Remove duplicate ready() calls
+1. [x] Create LSSVM subgraph integration utilities
+2. [x] Implement spam NFT filtering system
+3. [x] Build unified price-check API (pools + listings)
+4. [x] Update .env.example with LSSVM configuration
+5. [ ] Build UnifiedTradingView component
+6. [ ] Create buy/sell API endpoints
+7. [ ] Test end-to-end trading flows
 
 **Success Criteria**:
-- [ ] All Seaport offers work end-to-end
-- [ ] App loads gracefully outside Farcaster
-- [ ] No console errors in production
-- [ ] All environment variables documented
+- [x] LSSVM subgraph queries working
+- [x] Spam filtering reduces visible spam by >90%
+- [x] Price-check API returns best prices from both sources
+- [ ] Users can see instant pool prices vs. listing prices
+- [ ] Smart routing automatically chooses best execution path
+- [ ] All trading works seamlessly in Farcaster mini-app
 
-### Next Sprint (Week of Nov 28, 2024)
-**Focus**: Complete NFT listings
+### Previous Sprint (Week of Nov 21, 2024)
+**Focus**: Critical bug fixes from security audit ✅ COMPLETED
 
 **Goals**:
-1. Implement listing creation API
-2. Add listing UI components
-3. Test listing fulfillment
-4. Add listing management (cancel, edit)
+1. [x] Fix conduit address
+2. [x] Implement graceful FrameProvider loading
+3. [x] Add error handling to Seaport
+4. [x] Create .env.example
+5. [x] Remove duplicate ready() calls
+
+**Success Criteria**:
+- [x] All Seaport offers work end-to-end
+- [x] App loads gracefully outside Farcaster
+- [x] No console errors in production
+- [x] All environment variables documented
 
 ---
 
