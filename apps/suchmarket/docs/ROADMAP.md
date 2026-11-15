@@ -44,7 +44,7 @@ Configured in the `LSSVMPairFactory` constructor via deploy env (see `DeployForB
 
 | Setting | Env var (Foundry, local only) | On-chain |
 | --- | --- | --- |
-| Protocol fee recipient | `PROTOCOL_FEE_RECIPIENT` | `protocolFeeRecipient` — treasury/multisig that receives protocol share of trades |
+| Protocol fee recipient | `PROTOCOL_FEE_RECIPIENT` | `protocolFeeRecipient` — **deployer wallet at Ethereum mainnet launch**; treasury/multisig later via factory owner controls (Max deploys locally; agents do not set addresses or keys) |
 | Protocol fee rate | `PROTOCOL_FEE_MULTIPLIER` | `protocolFeeMultiplier` — **1e18 = 100%** of trade; max **`0.1e18` (10%)** per `MAX_PROTOCOL_FEE`. Example: `10000000000000000` = **1%** (same default as `DEPLOY_BASE.md`) |
 | Factory admin | `FACTORY_OWNER` | `owner()` — can `changeProtocolFeeRecipient`, `changeProtocolFeeMultiplier`, whitelist curves/routers |
 | Royalties | `ROYALTY_REGISTRY` | Passed into `RoyaltyEngine` — use Manifold universal registry where applicable (see `DEPLOY_BASE.md`) |
@@ -61,7 +61,7 @@ Agents do **not** run broadcast or touch `.env*` files.
    - [ ] Foundry installed; `cd packages/lssvm-contracts` && `forge build`
    - [ ] Ethereum mainnet RPC URL (Alchemy/Infura/etc.)
    - [ ] Deployer wallet funded with ETH for gas
-   - [ ] Decide `PROTOCOL_FEE_RECIPIENT`, `PROTOCOL_FEE_MULTIPLIER`, `FACTORY_OWNER` (often multisig)
+   - [ ] Set `PROTOCOL_FEE_RECIPIENT` to **deployer wallet** at launch; `PROTOCOL_FEE_MULTIPLIER` as desired; `FACTORY_OWNER` (multisig when ready)
    - [ ] Create `packages/lssvm-contracts/.env.local` with `RPC_URL`, `PRIVATE_KEY`, `ETHERSCAN_API_KEY`, `ROYALTY_REGISTRY`, `PROTOCOL_FEE_RECIPIENT`, `PROTOCOL_FEE_MULTIPLIER`, `FACTORY_OWNER` (per `DEPLOY_BASE.md`; never commit)
 
 2. **Deploy**
@@ -87,13 +87,12 @@ Agents do **not** run broadcast or touch `.env*` files.
 
 | Step | Owner |
 | --- | --- |
-| Hosted Postgres + `DATABASE_URL` on Vercel | **Max** |
+| Vercel Postgres `DATABASE_URL` + Vercel cron for indexer (**production hosting — decided**) | **Max** |
 | Vercel project for `apps/suchmarket`, preview URLs | **Max** |
 | Cron secret / `CRON_SECRET` for indexer route | **Max** |
-| Base Sepolia marketplace contract in env (if not using hardcoded dev defaults) | **Max** |
+| Base Sepolia marketplace contract + `NEXT_PUBLIC_MARKETPLACE_ADDRESS_84532` (auctions UI hidden until set) | **Max** |
 | SettingsFactory + property-checker pools in UI | Agent + **Max** (deploy checker addresses if needed) |
 | Royalties UX for studio collections (2981 / engine hints) | Agent |
-| Indexer hosting runbook (Neon/Railway/etc.) | **Max** |
 | QA on live Sepolia pools + TestNFT contracts | Agent + Max |
 
 ## Monorepo split (post-relaunch)
@@ -120,8 +119,7 @@ Peer **bundle-for-bundle** trading on **Seaport 1.6** (nav: **Barter**). Post–
 
 | Step | Owner |
 | --- | --- |
-| Review design + open questions | **Max** |
-| Conduit + fee recipient per chain | **Max** |
+| **`BarterFeeConfig` + conduit deploy** (deployer owner → multisig via `Ownable2Step`) | **Max** |
 | Implementation phases 1–4 | Agent (after launch) |
 
 ## Remaining — mainnet

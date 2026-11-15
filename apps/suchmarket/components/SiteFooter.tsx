@@ -2,9 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useAppChain } from '@/contexts/ChainContext'
+import { isAuctionHouseEnabled } from '@/lib/chain-config'
 
 export function SiteFooter() {
   const pathname = usePathname()
+  const { chainId } = useAppChain()
+  const showAuctions = isAuctionHouseEnabled(chainId)
   if (pathname?.startsWith('/embed')) return null
 
   return (
@@ -24,9 +28,11 @@ export function SiteFooter() {
           <Link href="/create" className="hover:text-white underline-offset-2 hover:underline">
             Create pool
           </Link>
-          <Link href="/auctions" className="hover:text-white underline-offset-2 hover:underline">
-            Auctions
-          </Link>
+          {showAuctions && (
+            <Link href="/auctions" className="hover:text-white underline-offset-2 hover:underline">
+              Auctions
+            </Link>
+          )}
           <a
             href="https://github.com/mxjxn/such-lssvm"
             target="_blank"

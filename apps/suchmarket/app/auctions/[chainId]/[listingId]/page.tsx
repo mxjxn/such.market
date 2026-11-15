@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { fetchAuctionById } from '@/lib/auctions-server'
 import { AuctionBidPanel } from '@/components/auctions/AuctionBidPanel'
 import { getChainName, isSupportedChainId } from '@/lib/chains'
+import { isAuctionHouseEnabled } from '@/lib/chain-config'
 
 export default async function AuctionDetailPage({
   params,
@@ -10,7 +11,7 @@ export default async function AuctionDetailPage({
   params: { chainId: string; listingId: string }
 }) {
   const chainId = parseInt(params.chainId, 10)
-  if (!isSupportedChainId(chainId)) notFound()
+  if (!isSupportedChainId(chainId) || !isAuctionHouseEnabled(chainId)) notFound()
   let listingId: bigint
   try {
     listingId = BigInt(params.listingId)

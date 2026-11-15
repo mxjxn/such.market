@@ -19,7 +19,7 @@ Orders are **EIP-712 signed** and fulfilled on-chain via Seaport; such.market ho
 | # | Decision |
 | --- | --- |
 | 1 | **Dedicated such.market conduit** on each supported chain (deploy via `ConduitController`; sole conduit promoted in UI). |
-| 2 | **Fee:** **2% (200 bps)**. **Taker pays by default** (offerer-pays optional at build). Recipient is **owner-settable**, starts as **deployer wallet**; ownership **transferable** (`Ownable2Step`-style). Config via on-chain **`BarterFeeConfig`** (recommended) — see §8. |
+| 2 | **Fee:** **2% (200 bps)**. **Taker pays by default** (offerer-pays optional at build). **`BarterFeeConfig` owner:** deployer wallet at launch, then **`Ownable2Step` transfer** to a multisig when ready. Fee recipient is owner-settable (starts as deployer). Config via on-chain **`BarterFeeConfig`** (recommended) — see §8. |
 | 3 | **ERC-20 currency legs:** **WETH**, **USDC**, plus **admin-managed token allowlist**. Unverified ERC-20s **cannot** be payment/consideration currency. |
 | 4 | **Holdings index at launch:** **Connected wallets + offerers only** (no global watchlist crawl). |
 | 5 | **Counters:** **Anyone** can post a counteroffer. |
@@ -355,11 +355,10 @@ Compliance is **in scope from day one**. Primary risk is **fake/impersonating co
 
 ## 13. Open questions for Max
 
-1. **`BarterFeeConfig` deploy:** Same owner multisig as LSSVM factory / conduit, or separate deployer-at-launch then transfer?
-2. **Verification applications:** Self-serve form (contract + chain proof) vs manual ticket only?
-3. **Followers/collector graph:** Source for “show unverified to my audience” (cryptoart.social API, on-chain holders, or follows table only)?
-4. **Moderation:** SLA and roles for `barter_reports`; when to require on-chain cancel vs admin hide only.
-5. **Legal review checklist:** Sign-off template before Phase 2+ features.
+1. **Verification applications:** Self-serve form (contract + chain proof) vs manual ticket only?
+2. **Followers/collector graph:** Source for “show unverified to my audience” (cryptoart.social API, on-chain holders, or follows table only)?
+3. **Moderation:** SLA and roles for `barter_reports`; when to require on-chain cancel vs admin hide only.
+4. **Legal review checklist:** Sign-off template before Phase 2+ features.
 
 ---
 

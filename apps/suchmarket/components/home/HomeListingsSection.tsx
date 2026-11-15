@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useAppChain } from '@/contexts/ChainContext'
+import { isAuctionHouseEnabled } from '@/lib/chain-config'
 import { SAMPLE_AUCTIONS, type SampleAuction } from '@/lib/homeFixtures'
 import type { AuctionSummary } from '@/lib/auctions-server'
 
@@ -57,6 +58,7 @@ function liveToSample(a: AuctionSummary): SampleAuction {
 
 export function HomeListingsSection({ preview }: { preview: boolean }) {
   const { chainId } = useAppChain()
+  const auctionsVisible = isAuctionHouseEnabled(chainId)
   const { data: live } = useQuery({
     queryKey: ['homeAuctions', chainId],
     queryFn: async () => {
@@ -65,7 +67,7 @@ export function HomeListingsSection({ preview }: { preview: boolean }) {
       const json = await res.json()
       return (json.auctions as AuctionSummary[]).map(liveToSample)
     },
-    enabled: !preview,
+    enabled: !preview && auctionsVisible,
     staleTime: 60_000,
   })
 
@@ -74,7 +76,10 @@ export function HomeListingsSection({ preview }: { preview: boolean }) {
   return (
     <section className="sm-band-sky border-b-2 border-line">
       <div className="sm-container py-10 md:py-14">
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-10">
+      <div
+        className={`grid grid-cols-1 gap-8 lg:gap-10 ${auctionsVisible ? 'lg:grid-cols-5' : 'lg:grid-cols-2 lg:max-w-2xl'}`}
+      >
+        {auctionsVisible && (
         <div className="lg:col-span-3">
           <div className="flex items-end justify-between gap-4 mb-5">
             <div>
@@ -119,8 +124,9 @@ export function HomeListingsSection({ preview }: { preview: boolean }) {
             )}
           </div>
         </div>
+        )}
 
-        <div className="lg:col-span-2">
+        <div className={auctionsVisible ? 'lg:col-span-2' : ''}>
           <h2 className="sm-heading text-2xl md:text-3xl mb-5">Create a listing</h2>
           <div className="sm-card p-5 md:p-6 shadow-play h-full">
             <p className="text-sm text-mute leading-relaxed mb-5">
@@ -133,13 +139,15 @@ export function HomeListingsSection({ preview }: { preview: boolean }) {
                 body="Bonding-curve liquidity. Always open to buy and sell."
                 cta="Create pool"
               />
-              <ListingOption
-                href="/create/auction"
-                title="Auction"
-                body="Timed English auction for a piece you hold."
-                cta="Coming soon"
-                soon
-              />
+              {auctionsVisible && (
+                <ListingOption
+                  href="/create/auction"
+                  title="Auction"
+                  body="Timed English auction for a piece you hold."
+                  cta="Coming soon"
+                  soon
+                />
+              )}
               <ListingOption
                 href="/create/fixed-price"
                 title="Fixed price"
