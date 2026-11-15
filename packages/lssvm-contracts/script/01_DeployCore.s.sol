@@ -16,13 +16,13 @@ import "../src/LSSVMPairFactory.sol";
  *      1. RoyaltyEngine
  *      2. Pair Templates (ERC721ETH, ERC721ERC20, ERC1155ETH, ERC1155ERC20)
  *      3. LSSVMPairFactory
- * 
+ *
  * Required environment variables:
  *      - ROYALTY_REGISTRY: Address of the Manifold Royalty Registry (chain-specific)
  *      - PROTOCOL_FEE_RECIPIENT: Address to receive protocol fees
  *      - PROTOCOL_FEE_MULTIPLIER: Protocol fee multiplier (in base 1e18, max 0.1e18 = 10%)
  *      - FACTORY_OWNER: Address that will own the factory contract
- * 
+ *
  * Usage:
  *      forge script script/01_DeployCore.s.sol:DeployCore --rpc-url <your_rpc_url> --broadcast --verify
  */
@@ -43,16 +43,16 @@ contract DeployCore is Script {
 
         // Step 2: Deploy Pair Templates
         console.log("\nDeploying Pair Templates...");
-        
+
         LSSVMPairERC721ETH erc721ETHTemplate = new LSSVMPairERC721ETH(royaltyEngine);
         console.log("LSSVMPairERC721ETH template deployed at:", address(erc721ETHTemplate));
-        
+
         LSSVMPairERC721ERC20 erc721ERC20Template = new LSSVMPairERC721ERC20(royaltyEngine);
         console.log("LSSVMPairERC721ERC20 template deployed at:", address(erc721ERC20Template));
-        
+
         LSSVMPairERC1155ETH erc1155ETHTemplate = new LSSVMPairERC1155ETH(royaltyEngine);
         console.log("LSSVMPairERC1155ETH template deployed at:", address(erc1155ETHTemplate));
-        
+
         LSSVMPairERC1155ERC20 erc1155ERC20Template = new LSSVMPairERC1155ERC20(royaltyEngine);
         console.log("LSSVMPairERC1155ERC20 template deployed at:", address(erc1155ERC20Template));
 

@@ -23,7 +23,14 @@ contract MockCurve is ICurve, CurveErrorCodes {
     /**
      * @dev See {ICurve-validateDelta}
      */
-    function validateDelta(uint128 /*delta*/ ) external pure override returns (bool valid) {
+    function validateDelta(
+        uint128 /*delta*/
+    )
+        external
+        pure
+        override
+        returns (bool valid)
+    {
         // For a linear curve, all values of delta are valid
         return true;
     }
@@ -31,7 +38,14 @@ contract MockCurve is ICurve, CurveErrorCodes {
     /**
      * @dev See {ICurve-validateSpotPrice}
      */
-    function validateSpotPrice(uint128 /* newSpotPrice */ ) external pure override returns (bool) {
+    function validateSpotPrice(
+        uint128 /* newSpotPrice */
+    )
+        external
+        pure
+        override
+        returns (bool)
+    {
         // For a linear curve, all values of spot price are valid
         return true;
     }

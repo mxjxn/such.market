@@ -146,9 +146,8 @@ contract VeryFastRouter {
         returns (uint128 newSpotPrice, uint128 newDelta)
     {
         CurveErrorCodes.Error errorCode;
-        (errorCode, newSpotPrice, newDelta,,,) = pair.bondingCurve().getBuyInfo(
-            pair.spotPrice(), pair.delta(), i, pair.fee(), pair.factory().protocolFeeMultiplier()
-        );
+        (errorCode, newSpotPrice, newDelta,,,) = pair.bondingCurve()
+            .getBuyInfo(pair.spotPrice(), pair.delta(), i, pair.fee(), pair.factory().protocolFeeMultiplier());
         if (errorCode != CurveErrorCodes.Error.OK) {
             revert VeryFastRouter__BondingCurveQuoteError();
         }
@@ -161,9 +160,8 @@ contract VeryFastRouter {
         uint256 num
     ) internal view returns (uint256 output) {
         CurveErrorCodes.Error errorCode;
-        (errorCode,,, output,,) = pair.bondingCurve().getBuyInfo(
-            newSpotPrice, newDelta, num, pair.fee(), pair.factory().protocolFeeMultiplier()
-        );
+        (errorCode,,, output,,) = pair.bondingCurve()
+            .getBuyInfo(newSpotPrice, newDelta, num, pair.fee(), pair.factory().protocolFeeMultiplier());
         if (errorCode != CurveErrorCodes.Error.OK) {
             revert VeryFastRouter__BondingCurveQuoteError();
         }
@@ -238,9 +236,8 @@ contract VeryFastRouter {
         returns (uint128 newSpotPrice, uint128 newDelta)
     {
         CurveErrorCodes.Error errorCode;
-        (errorCode, newSpotPrice, newDelta,,,) = pair.bondingCurve().getSellInfo(
-            pair.spotPrice(), pair.delta(), i, pair.fee(), pair.factory().protocolFeeMultiplier()
-        );
+        (errorCode, newSpotPrice, newDelta,,,) = pair.bondingCurve()
+            .getSellInfo(pair.spotPrice(), pair.delta(), i, pair.fee(), pair.factory().protocolFeeMultiplier());
         if (errorCode != CurveErrorCodes.Error.OK) {
             revert VeryFastRouter__BondingCurveQuoteError();
         }
@@ -253,9 +250,8 @@ contract VeryFastRouter {
         uint256 num
     ) internal view returns (uint256 output) {
         CurveErrorCodes.Error errorCode;
-        (errorCode,,, output,,) = pair.bondingCurve().getSellInfo(
-            newSpotPrice, newDelta, num, pair.fee(), pair.factory().protocolFeeMultiplier()
-        );
+        (errorCode,,, output,,) = pair.bondingCurve()
+            .getSellInfo(newSpotPrice, newDelta, num, pair.fee(), pair.factory().protocolFeeMultiplier());
         if (errorCode != CurveErrorCodes.Error.OK) {
             revert VeryFastRouter__BondingCurveQuoteError();
         }
@@ -291,18 +287,20 @@ contract VeryFastRouter {
                     // Pass in params for property checking if needed
                     // Then do the swap with the same minExpectedTokenOutput amount
                     if (order.doPropertyCheck) {
-                        outputAmount = ILSSVMPairERC721(address(order.pair)).swapNFTsForToken(
-                            order.nftIds,
-                            order.minExpectedOutput,
-                            payable(address(this)),
-                            true,
-                            msg.sender,
-                            order.propertyCheckParams
-                        );
+                        outputAmount = ILSSVMPairERC721(address(order.pair))
+                            .swapNFTsForToken(
+                                order.nftIds,
+                                order.minExpectedOutput,
+                                payable(address(this)),
+                                true,
+                                msg.sender,
+                                order.propertyCheckParams
+                            );
                     } else {
-                        outputAmount = order.pair.swapNFTsForToken(
-                            order.nftIds, order.minExpectedOutput, payable(address(this)), true, msg.sender
-                        );
+                        outputAmount = order.pair
+                            .swapNFTsForToken(
+                                order.nftIds, order.minExpectedOutput, payable(address(this)), true, msg.sender
+                            );
                     }
 
                     // Accumulate ETH amount
@@ -313,18 +311,20 @@ contract VeryFastRouter {
                     // Pass in params for property checking if needed
                     // Then do the swap with the same minExpectedTokenOutput amount
                     if (order.doPropertyCheck) {
-                        outputAmount = ILSSVMPairERC721(address(order.pair)).swapNFTsForToken(
-                            order.nftIds,
-                            order.minExpectedOutput,
-                            swapOrder.tokenRecipient,
-                            true,
-                            msg.sender,
-                            order.propertyCheckParams
-                        );
+                        outputAmount = ILSSVMPairERC721(address(order.pair))
+                            .swapNFTsForToken(
+                                order.nftIds,
+                                order.minExpectedOutput,
+                                swapOrder.tokenRecipient,
+                                true,
+                                msg.sender,
+                                order.propertyCheckParams
+                            );
                     } else {
-                        outputAmount = order.pair.swapNFTsForToken(
-                            order.nftIds, order.minExpectedOutput, swapOrder.tokenRecipient, true, msg.sender
-                        );
+                        outputAmount = order.pair
+                            .swapNFTsForToken(
+                                order.nftIds, order.minExpectedOutput, swapOrder.tokenRecipient, true, msg.sender
+                            );
                     }
                 }
             }
@@ -335,9 +335,10 @@ contract VeryFastRouter {
 
                 {
                     // Grab royalty for calc in _findMaxFillableAmtForSell
-                    (,, uint256 royaltyAmount) = order.pair.calculateRoyaltiesView(
-                        order.isERC721 ? order.nftIds[0] : LSSVMPairERC1155(address(order.pair)).nftId(), BASE
-                    );
+                    (,, uint256 royaltyAmount) = order.pair
+                        .calculateRoyaltiesView(
+                            order.isERC721 ? order.nftIds[0] : LSSVMPairERC1155(address(order.pair)).nftId(), BASE
+                        );
 
                     // Calculate the max number of items we can sell
                     (numItemsToFill, priceToFillAt) = _findMaxFillableAmtForSell(
@@ -353,32 +354,39 @@ contract VeryFastRouter {
                 if (numItemsToFill != 0) {
                     // If property checking is needed, do the property check swap
                     if (order.doPropertyCheck) {
-                        outputAmount = ILSSVMPairERC721(address(order.pair)).swapNFTsForToken(
-                            order.nftIds[:numItemsToFill],
-                            priceToFillAt,
-                            swapOrder.tokenRecipient,
-                            true,
-                            msg.sender,
-                            order.propertyCheckParams
-                        );
+                        outputAmount = ILSSVMPairERC721(address(order.pair))
+                            .swapNFTsForToken(
+                                order.nftIds[:numItemsToFill],
+                                priceToFillAt,
+                                swapOrder.tokenRecipient,
+                                true,
+                                msg.sender,
+                                order.propertyCheckParams
+                            );
                     }
                     // Otherwise do a normal sell swap
                     else {
                         // Get subarray if ERC721
                         if (order.isERC721) {
-                            outputAmount = order.pair.swapNFTsForToken(
-                                order.nftIds[:numItemsToFill], priceToFillAt, swapOrder.tokenRecipient, true, msg.sender
-                            );
+                            outputAmount = order.pair
+                                .swapNFTsForToken(
+                                    order.nftIds[:numItemsToFill],
+                                    priceToFillAt,
+                                    swapOrder.tokenRecipient,
+                                    true,
+                                    msg.sender
+                                );
                         }
                         // For 1155 swaps, wrap as number
                         else {
-                            outputAmount = order.pair.swapNFTsForToken(
-                                _wrapUintAsArray(numItemsToFill),
-                                priceToFillAt,
-                                swapOrder.tokenRecipient,
-                                true,
-                                msg.sender
-                            );
+                            outputAmount = order.pair
+                                .swapNFTsForToken(
+                                    _wrapUintAsArray(numItemsToFill),
+                                    priceToFillAt,
+                                    swapOrder.tokenRecipient,
+                                    true,
+                                    msg.sender
+                                );
                         }
                     }
                 }
@@ -416,9 +424,10 @@ contract VeryFastRouter {
                 uint256 priceToFillAt;
 
                 {
-                    (,, uint256 royaltyAmount) = order.pair.calculateRoyaltiesView(
-                        order.isERC721 ? order.nftIds[0] : LSSVMPairERC1155(address(order.pair)).nftId(), BASE
-                    );
+                    (,, uint256 royaltyAmount) = order.pair
+                        .calculateRoyaltiesView(
+                            order.isERC721 ? order.nftIds[0] : LSSVMPairERC1155(address(order.pair)).nftId(), BASE
+                        );
 
                     // uint128(inputAmount) is safe because order.pair.spotPrice() returns uint128
                     (numItemsToFill, priceToFillAt) = _findMaxFillableAmtForBuy(
@@ -453,9 +462,8 @@ contract VeryFastRouter {
                     else {
                         // The amount to buy is the min(numItemsToFill, erc1155.balanceOf(pair))
                         {
-                            uint256 availableNFTs = IERC1155(order.pair.nft()).balanceOf(
-                                address(order.pair), LSSVMPairERC1155(address(order.pair)).nftId()
-                            );
+                            uint256 availableNFTs = IERC1155(order.pair.nft())
+                                .balanceOf(address(order.pair), LSSVMPairERC1155(address(order.pair)).nftId());
                             numItemsToFill = numItemsToFill < availableNFTs ? numItemsToFill : availableNFTs;
                         }
 
@@ -539,13 +547,14 @@ contract VeryFastRouter {
                 /* tradeFee */
                 ,
                 /* protocolFee */
-            ) = (ICurve(address(uint160(feeMultiplierAndBondingCurve)))).getBuyInfo(
-                spotPrice,
-                delta,
-                (start + end) / 2,
-                (feeMultiplierAndBondingCurve >> FEE_MULTIPLIER_SHIFT_AMOUNT),
-                protocolFeeMultiplier
-            );
+            ) = (ICurve(address(uint160(feeMultiplierAndBondingCurve))))
+                .getBuyInfo(
+                    spotPrice,
+                    delta,
+                    (start + end) / 2,
+                    (feeMultiplierAndBondingCurve >> FEE_MULTIPLIER_SHIFT_AMOUNT),
+                    protocolFeeMultiplier
+                );
 
             currentCost += currentCost * royaltyAmount / BASE;
 
@@ -604,15 +613,16 @@ contract VeryFastRouter {
                 /* tradeFee */
                 ,
                 /* protocolFee */
-            ) = (ICurve(address(uint160(feeMultiplierAndBondingCurve)))).getSellInfo(
-                spotPrice,
-                // get delta from deltaAndPairTokenBalance
-                uint128(deltaAndPairTokenBalance >> DELTA_SHIFT_AMOUNT),
-                (start + end) / 2,
-                // get feeMultiplier from feeMultiplierAndBondingCurve
-                uint96(feeMultiplierAndBondingCurve >> FEE_MULTIPLIER_SHIFT_AMOUNT),
-                protocolFeeMultiplier
-            );
+            ) = (ICurve(address(uint160(feeMultiplierAndBondingCurve))))
+                .getSellInfo(
+                    spotPrice,
+                    // get delta from deltaAndPairTokenBalance
+                    uint128(deltaAndPairTokenBalance >> DELTA_SHIFT_AMOUNT),
+                    (start + end) / 2,
+                    // get feeMultiplier from feeMultiplierAndBondingCurve
+                    uint96(feeMultiplierAndBondingCurve >> FEE_MULTIPLIER_SHIFT_AMOUNT),
+                    protocolFeeMultiplier
+                );
             currentOutput -= currentOutput * royaltyAmount / BASE;
             // If the bonding curve has a math error, or
             // if the current output is too low relative to our max output, or
@@ -695,12 +705,8 @@ contract VeryFastRouter {
      */
     function pairTransferERC20From(ERC20 token, address from, address to, uint256 amount) external {
         // verify caller is a trusted ERC20 pair contract
-        if (
-            !(
-                factory.isValidPair(msg.sender)
-                    && factory.getPairTokenType(msg.sender) == ILSSVMPairFactoryLike.PairTokenType.ERC20
-            )
-        ) {
+        if (!(factory.isValidPair(msg.sender)
+                    && factory.getPairTokenType(msg.sender) == ILSSVMPairFactoryLike.PairTokenType.ERC20)) {
             revert VeryFastRouter__InvalidPair();
         }
 
@@ -718,12 +724,8 @@ contract VeryFastRouter {
      */
     function pairTransferNFTFrom(IERC721 nft, address from, address to, uint256 id) external {
         // verify caller is a trusted pair contract
-        if (
-            !(
-                factory.isValidPair(msg.sender)
-                    && factory.getPairNFTType(msg.sender) == ILSSVMPairFactoryLike.PairNFTType.ERC721
-            )
-        ) {
+        if (!(factory.isValidPair(msg.sender)
+                    && factory.getPairNFTType(msg.sender) == ILSSVMPairFactoryLike.PairNFTType.ERC721)) {
             revert VeryFastRouter__InvalidPair();
         }
 
@@ -748,12 +750,8 @@ contract VeryFastRouter {
         uint256[] calldata amounts
     ) external {
         // verify caller is a trusted pair contract
-        if (
-            !(
-                factory.isValidPair(msg.sender)
-                    && factory.getPairNFTType(msg.sender) == ILSSVMPairFactoryLike.PairNFTType.ERC1155
-            )
-        ) {
+        if (!(factory.isValidPair(msg.sender)
+                    && factory.getPairNFTType(msg.sender) == ILSSVMPairFactoryLike.PairNFTType.ERC1155)) {
             revert VeryFastRouter__InvalidPair();
         }
 

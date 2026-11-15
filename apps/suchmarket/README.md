@@ -3,7 +3,7 @@
 NFT AMM front end for Max’s LSSVM fork — the sales home for the cryptoart ecosystem.
 
 - **cryptoart.studio** — artists manage contracts, launches, and artist pool setup (not this app)
-- **such.market** — pools, trading, (soon) auctions — marketplace only
+- **such.market** — pools, auctions, fixed-price listings, trading (low-profile at launch; studio/social lead GTM)
 - **cryptoart.social** — embeds `/embed/pool/...` and `/embed/collection/...`
 
 ## Run
@@ -34,9 +34,10 @@ Pool discovery uses **factory event logs via RPC** (`lib/indexer.ts`, `/api/pool
 | `/pool/[chainId]/[address]` | Detail + buy/sell |
 | `/create` | Create pool (trader path) |
 | `/my-pools` | Manage / deposit / params |
-| `/auctions` | Stub for auction house |
+| `/auctions` | Live auction browse (indexer in production) |
+| `/sell` | Sell flow stub — auction + fixed-price on marketplace contract |
 | `/embed/pool/...` | Social embed card |
 | `/embed/collection/...` | Collection liquidity card |
-| `/buy/...`, `/sell/...` | Redirect → `/pool/...` |
+| `/buy/...` | Redirect → `/pool/...` (trade shorthand) |
 
 Artist launch / collection setup belongs in **cryptoart.studio**, not `/launch` here.

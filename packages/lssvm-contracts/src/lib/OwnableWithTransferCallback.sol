@@ -56,8 +56,9 @@ abstract contract OwnableWithTransferCallback {
 
         if (newOwner.code.length > 0) {
             try IOwnershipTransferReceiver(newOwner).onOwnershipTransferred{value: msg.value}(msg.sender, data) {}
-            // If revert...
-            catch (bytes memory reason) {
+
+                // If revert...
+                catch (bytes memory reason) {
                 // If we just transferred to a contract w/ no callback, this is fine
                 if (reason.length == 0) {
                     // i.e., no need to revert

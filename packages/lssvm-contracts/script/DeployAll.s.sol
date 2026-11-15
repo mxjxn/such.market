@@ -41,16 +41,16 @@ import "../src/settings/StandardSettingsFactory.sol";
  *      3. Router
  *      4. Property checkers
  *      5. Settings
- * 
+ *
  * Required environment variables:
  *      - ROYALTY_REGISTRY: Address of the Manifold Royalty Registry (chain-specific)
  *      - PROTOCOL_FEE_RECIPIENT: Address to receive protocol fees
  *      - PROTOCOL_FEE_MULTIPLIER: Protocol fee multiplier (in base 1e18, max 0.1e18 = 10%)
  *      - FACTORY_OWNER: Address that will own the factory contract
- * 
+ *
  * Usage:
  *      forge script script/DeployAll.s.sol:DeployAll --rpc-url <your_rpc_url> --broadcast --verify
- * 
+ *
  * Note: This script will deploy all contracts in a single transaction sequence.
  *       For production deployments, consider using individual scripts for better control.
  */
@@ -62,18 +62,18 @@ contract DeployAll is Script {
     LSSVMPairERC1155ETH public erc1155ETHTemplate;
     LSSVMPairERC1155ERC20 public erc1155ERC20Template;
     LSSVMPairFactory public factory;
-    
+
     LinearCurve public linearCurve;
     ExponentialCurve public exponentialCurve;
     XykCurve public xykCurve;
     GDACurve public gdaCurve;
-    
+
     VeryFastRouter public router;
-    
+
     MerklePropertyChecker public merkleChecker;
     RangePropertyChecker public rangeChecker;
     PropertyCheckerFactory public propertyCheckerFactory;
-    
+
     Splitter public splitter;
     StandardSettings public standardSettings;
     StandardSettingsFactory public settingsFactory;
@@ -132,13 +132,13 @@ contract DeployAll is Script {
         console.log("Deploying Pair Templates...");
         erc721ETHTemplate = new LSSVMPairERC721ETH(royaltyEngine);
         console.log("LSSVMPairERC721ETH:", address(erc721ETHTemplate));
-        
+
         erc721ERC20Template = new LSSVMPairERC721ERC20(royaltyEngine);
         console.log("LSSVMPairERC721ERC20:", address(erc721ERC20Template));
-        
+
         erc1155ETHTemplate = new LSSVMPairERC1155ETH(royaltyEngine);
         console.log("LSSVMPairERC1155ETH:", address(erc1155ETHTemplate));
-        
+
         erc1155ERC20Template = new LSSVMPairERC1155ERC20(royaltyEngine);
         console.log("LSSVMPairERC1155ERC20:", address(erc1155ERC20Template));
 
@@ -159,13 +159,13 @@ contract DeployAll is Script {
     function deployBondingCurves() internal {
         linearCurve = new LinearCurve();
         console.log("LinearCurve:", address(linearCurve));
-        
+
         exponentialCurve = new ExponentialCurve();
         console.log("ExponentialCurve:", address(exponentialCurve));
-        
+
         xykCurve = new XykCurve();
         console.log("XykCurve:", address(xykCurve));
-        
+
         gdaCurve = new GDACurve();
         console.log("GDACurve:", address(gdaCurve));
     }
@@ -178,10 +178,10 @@ contract DeployAll is Script {
     function deployPropertyCheckers() internal {
         merkleChecker = new MerklePropertyChecker();
         console.log("MerklePropertyChecker:", address(merkleChecker));
-        
+
         rangeChecker = new RangePropertyChecker();
         console.log("RangePropertyChecker:", address(rangeChecker));
-        
+
         propertyCheckerFactory = new PropertyCheckerFactory(merkleChecker, rangeChecker);
         console.log("PropertyCheckerFactory:", address(propertyCheckerFactory));
     }
@@ -189,10 +189,10 @@ contract DeployAll is Script {
     function deploySettings() internal {
         splitter = new Splitter();
         console.log("Splitter:", address(splitter));
-        
+
         standardSettings = new StandardSettings(splitter, ILSSVMPairFactoryLike(address(factory)));
         console.log("StandardSettings:", address(standardSettings));
-        
+
         settingsFactory = new StandardSettingsFactory(standardSettings);
         console.log("StandardSettingsFactory:", address(settingsFactory));
     }
@@ -201,21 +201,21 @@ contract DeployAll is Script {
         // Check if deployer is the factory owner
         address factoryOwner = vm.envAddress("FACTORY_OWNER");
         address deployer = tx.origin; // Use tx.origin for deployer address
-        
+
         // Fallback: verify factory's actual owner matches expected owner
         address actualOwner = factory.owner();
         bool shouldConfigure = (deployer == factoryOwner) || (actualOwner == factoryOwner);
-        
+
         if (shouldConfigure) {
             console.log("Whitelisting bonding curves...");
             factory.setBondingCurveAllowed(ICurve(address(linearCurve)), true);
             factory.setBondingCurveAllowed(ICurve(address(exponentialCurve)), true);
             factory.setBondingCurveAllowed(ICurve(address(xykCurve)), true);
             factory.setBondingCurveAllowed(ICurve(address(gdaCurve)), true);
-            
+
             console.log("Whitelisting router...");
             factory.setRouterAllowed(LSSVMRouter(payable(address(router))), true);
-            
+
             console.log("Configuration complete!");
         } else {
             console.log("WARNING: Deployer is not factory owner. Manual configuration required.");

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { getEnabledChainIds, getChainName, type SupportedChainId } from '@/lib/chains'
+import { isAuctionHouseEnabled } from '@/lib/chain-config'
 import { WalletButton } from './WalletButton'
 import { useAppChain } from '@/contexts/ChainContext'
 
@@ -16,6 +17,9 @@ const NAV: { href: string; label: string; soon?: boolean }[] = [
 export function SiteHeader() {
   const pathname = usePathname()
   const { chainId, setChainId } = useAppChain()
+  const navItems = NAV.filter(
+    (item) => item.href !== '/auctions' || isAuctionHouseEnabled(chainId)
+  )
 
   if (pathname?.startsWith('/embed')) {
     return null
@@ -31,7 +35,7 @@ export function SiteHeader() {
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-1.5" aria-label="Primary">
-            {NAV.map((item) => {
+            {navItems.map((item) => {
               const active = pathname === item.href || pathname?.startsWith(item.href + '/')
               return (
                 <Link
@@ -84,7 +88,7 @@ export function SiteHeader() {
         className="md:hidden flex gap-1.5 overflow-x-auto border-t border-white/25 px-4 py-2.5"
         aria-label="Mobile"
       >
-        {NAV.map((item) => {
+        {navItems.map((item) => {
           const active = pathname?.startsWith(item.href)
           return (
             <Link

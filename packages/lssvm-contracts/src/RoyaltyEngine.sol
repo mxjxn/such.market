@@ -198,11 +198,14 @@ contract RoyaltyEngine is ERC165, IRoyaltyEngineV1 {
             } catch {}
             // SuperRare handling
             if (tokenAddress == SuperRareContracts.SUPERRARE_V1 || tokenAddress == SuperRareContracts.SUPERRARE_V2) {
-                try ISuperRareRegistry(SuperRareContracts.SUPERRARE_REGISTRY).tokenCreator(tokenAddress, tokenId)
-                returns (address payable creator) {
-                    try ISuperRareRegistry(SuperRareContracts.SUPERRARE_REGISTRY).calculateRoyaltyFee(
-                        tokenAddress, tokenId, value
-                    ) returns (uint256 amount) {
+                try ISuperRareRegistry(SuperRareContracts.SUPERRARE_REGISTRY)
+                    .tokenCreator(tokenAddress, tokenId) returns (
+                    address payable creator
+                ) {
+                    try ISuperRareRegistry(SuperRareContracts.SUPERRARE_REGISTRY)
+                        .calculateRoyaltyFee(tokenAddress, tokenId, value) returns (
+                        uint256 amount
+                    ) {
                         recipients = new address payable[](1);
                         amounts = new uint256[](1);
                         recipients[0] = creator;
@@ -283,9 +286,8 @@ contract RoyaltyEngine is ERC165, IRoyaltyEngineV1 {
                 // SUPERRARE spec
                 address payable creator =
                     ISuperRareRegistry(SuperRareContracts.SUPERRARE_REGISTRY).tokenCreator(tokenAddress, tokenId);
-                uint256 amount = ISuperRareRegistry(SuperRareContracts.SUPERRARE_REGISTRY).calculateRoyaltyFee(
-                    tokenAddress, tokenId, value
-                );
+                uint256 amount = ISuperRareRegistry(SuperRareContracts.SUPERRARE_REGISTRY)
+                    .calculateRoyaltyFee(tokenAddress, tokenId, value);
                 recipients = new address payable[](1);
                 amounts = new uint256[](1);
                 recipients[0] = creator;

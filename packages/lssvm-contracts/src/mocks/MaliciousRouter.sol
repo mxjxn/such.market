@@ -201,16 +201,14 @@ contract MaliciousRouter {
 
             // Assume that i items have been bought and get the new params
             if (i > 0) {
-                (, newSpotPrice, newDelta,,,) = pair.bondingCurve().getBuyInfo(
-                    newSpotPrice, newDelta, i, pair.fee(), pair.factory().protocolFeeMultiplier()
-                );
+                (, newSpotPrice, newDelta,,,) = pair.bondingCurve()
+                    .getBuyInfo(newSpotPrice, newDelta, i, pair.fee(), pair.factory().protocolFeeMultiplier());
             }
 
             // Calculate price to purchase the remaining numNFTs - i items
             uint256 price;
-            (,,, price,,) = pair.bondingCurve().getBuyInfo(
-                newSpotPrice, newDelta, numNFTs - i, pair.fee(), pair.factory().protocolFeeMultiplier()
-            );
+            (,,, price,,) = pair.bondingCurve()
+                .getBuyInfo(newSpotPrice, newDelta, numNFTs - i, pair.fee(), pair.factory().protocolFeeMultiplier());
 
             // Set the price to buy numNFT - i items
             prices[numNFTs - i - 1] = price;
@@ -274,9 +272,8 @@ contract MaliciousRouter {
         returns (uint128 newSpotPrice, uint128 newDelta)
     {
         CurveErrorCodes.Error errorCode;
-        (errorCode, newSpotPrice, newDelta,,,) = pair.bondingCurve().getBuyInfo(
-            pair.spotPrice(), pair.delta(), i, pair.fee(), pair.factory().protocolFeeMultiplier()
-        );
+        (errorCode, newSpotPrice, newDelta,,,) = pair.bondingCurve()
+            .getBuyInfo(pair.spotPrice(), pair.delta(), i, pair.fee(), pair.factory().protocolFeeMultiplier());
     }
 
     function _getHypotheticalNewPoolParamsAfterBuying(
@@ -286,9 +283,8 @@ contract MaliciousRouter {
         uint256 num
     ) internal view returns (uint256 output) {
         CurveErrorCodes.Error errorCode;
-        (errorCode,,, output,,) = pair.bondingCurve().getBuyInfo(
-            newSpotPrice, newDelta, num, pair.fee(), pair.factory().protocolFeeMultiplier()
-        );
+        (errorCode,,, output,,) = pair.bondingCurve()
+            .getBuyInfo(newSpotPrice, newDelta, num, pair.fee(), pair.factory().protocolFeeMultiplier());
     }
 
     function getPairBaseQuoteTokenBalance(LSSVMPair pair) public view returns (uint256 balance) {
@@ -326,16 +322,14 @@ contract MaliciousRouter {
 
             // Assume that i items have been sold and get the new params
             if (i > 0) {
-                (, newSpotPrice, newDelta,,,) = pair.bondingCurve().getSellInfo(
-                    newSpotPrice, newDelta, i, pair.fee(), pair.factory().protocolFeeMultiplier()
-                );
+                (, newSpotPrice, newDelta,,,) = pair.bondingCurve()
+                    .getSellInfo(newSpotPrice, newDelta, i, pair.fee(), pair.factory().protocolFeeMultiplier());
             }
 
             // Calculate output to sell the remaining numNFTs - i items, factoring in royalties
             uint256 output;
-            (,,, output,,) = pair.bondingCurve().getSellInfo(
-                newSpotPrice, newDelta, numNFTs - i, pair.fee(), pair.factory().protocolFeeMultiplier()
-            );
+            (,,, output,,) = pair.bondingCurve()
+                .getSellInfo(newSpotPrice, newDelta, numNFTs - i, pair.fee(), pair.factory().protocolFeeMultiplier());
             (,, uint256 royaltyTotal) = pair.calculateRoyaltiesView(nftId, output);
             output = output - royaltyTotal;
 
@@ -388,18 +382,20 @@ contract MaliciousRouter {
                     // Pass in params for property checking if needed
                     // Then do the swap with the same minExpectedTokenOutput amount
                     if (order.doPropertyCheck) {
-                        outputAmount = ILSSVMPairERC721(address(order.pair)).swapNFTsForToken(
-                            order.nftIds,
-                            order.minExpectedOutput,
-                            payable(address(this)),
-                            true,
-                            msg.sender,
-                            order.propertyCheckParams
-                        );
+                        outputAmount = ILSSVMPairERC721(address(order.pair))
+                            .swapNFTsForToken(
+                                order.nftIds,
+                                order.minExpectedOutput,
+                                payable(address(this)),
+                                true,
+                                msg.sender,
+                                order.propertyCheckParams
+                            );
                     } else {
-                        outputAmount = order.pair.swapNFTsForToken(
-                            order.nftIds, order.minExpectedOutput, payable(address(this)), true, msg.sender
-                        );
+                        outputAmount = order.pair
+                            .swapNFTsForToken(
+                                order.nftIds, order.minExpectedOutput, payable(address(this)), true, msg.sender
+                            );
                     }
 
                     // Accumulate ETH amount
@@ -410,18 +406,20 @@ contract MaliciousRouter {
                     // Pass in params for property checking if needed
                     // Then do the swap with the same minExpectedTokenOutput amount
                     if (order.doPropertyCheck) {
-                        outputAmount = ILSSVMPairERC721(address(order.pair)).swapNFTsForToken(
-                            order.nftIds,
-                            order.minExpectedOutput,
-                            swapOrder.tokenRecipient,
-                            true,
-                            msg.sender,
-                            order.propertyCheckParams
-                        );
+                        outputAmount = ILSSVMPairERC721(address(order.pair))
+                            .swapNFTsForToken(
+                                order.nftIds,
+                                order.minExpectedOutput,
+                                swapOrder.tokenRecipient,
+                                true,
+                                msg.sender,
+                                order.propertyCheckParams
+                            );
                     } else {
-                        outputAmount = order.pair.swapNFTsForToken(
-                            order.nftIds, order.minExpectedOutput, swapOrder.tokenRecipient, true, msg.sender
-                        );
+                        outputAmount = order.pair
+                            .swapNFTsForToken(
+                                order.nftIds, order.minExpectedOutput, swapOrder.tokenRecipient, true, msg.sender
+                            );
                     }
                 }
             }
@@ -452,24 +450,26 @@ contract MaliciousRouter {
                 if (numItemsToFill > 0) {
                     // If property checking is needed, do the property check swap
                     if (order.doPropertyCheck) {
-                        outputAmount = ILSSVMPairERC721(address(order.pair)).swapNFTsForToken(
-                            _getSubArray(order.nftIds, numItemsToFill),
-                            priceToFillAt,
-                            swapOrder.tokenRecipient,
-                            true,
-                            msg.sender,
-                            order.propertyCheckParams
-                        );
+                        outputAmount = ILSSVMPairERC721(address(order.pair))
+                            .swapNFTsForToken(
+                                _getSubArray(order.nftIds, numItemsToFill),
+                                priceToFillAt,
+                                swapOrder.tokenRecipient,
+                                true,
+                                msg.sender,
+                                order.propertyCheckParams
+                            );
                     }
                     // Otherwise do a normal sell swap
                     else {
-                        outputAmount = order.pair.swapNFTsForToken(
-                            _getSubArray(order.nftIds, numItemsToFill),
-                            priceToFillAt,
-                            swapOrder.tokenRecipient,
-                            true,
-                            msg.sender
-                        );
+                        outputAmount = order.pair
+                            .swapNFTsForToken(
+                                _getSubArray(order.nftIds, numItemsToFill),
+                                priceToFillAt,
+                                swapOrder.tokenRecipient,
+                                true,
+                                msg.sender
+                            );
                     }
                 }
             }
@@ -536,8 +536,8 @@ contract MaliciousRouter {
                         // The amount to buy is the min(numItemsToFill, erc1155.balanceOf(pair))
                         {
                             address pairAddress = address(order.pair);
-                            uint256 availableNFTs =
-                                IERC1155(order.pair.nft()).balanceOf(pairAddress, LSSVMPairERC1155(pairAddress).nftId());
+                            uint256 availableNFTs = IERC1155(order.pair.nft())
+                                .balanceOf(pairAddress, LSSVMPairERC1155(pairAddress).nftId());
                             numItemsToFill = numItemsToFill < availableNFTs ? numItemsToFill : availableNFTs;
                         }
 
@@ -614,9 +614,8 @@ contract MaliciousRouter {
                 /* tradeFee */
                 ,
                 /* protocolFee */
-            ) = pair.bondingCurve().getBuyInfo(
-                spotPrice, delta, (start + end) / 2, feeMultiplier, protocolFeeMultiplier
-            );
+            ) = pair.bondingCurve()
+                .getBuyInfo(spotPrice, delta, (start + end) / 2, feeMultiplier, protocolFeeMultiplier);
 
             // If the bonding curve has a math error, or
             // If the current price is too expensive relative to our max cost,
@@ -731,9 +730,11 @@ contract MaliciousRouter {
             /* tradeFee */
             ,
             /* protocolFee */
-        ) = args.pair.bondingCurve().getSellInfo(
-            args.spotPrice, args.delta, (args.start + args.end) / 2, args.feeMultiplier, args.protocolFeeMultiplier
-        );
+        ) = args.pair
+            .bondingCurve()
+            .getSellInfo(
+                args.spotPrice, args.delta, (args.start + args.end) / 2, args.feeMultiplier, args.protocolFeeMultiplier
+            );
 
         // Subtract royalty amount
         currentOutput -= currentOutput * args.royaltyAmount / BASE;

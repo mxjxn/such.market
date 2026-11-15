@@ -13,12 +13,12 @@ import "../src/property-checking/PropertyCheckerFactory.sol";
  *      1. MerklePropertyChecker (implementation)
  *      2. RangePropertyChecker (implementation)
  *      3. PropertyCheckerFactory
- * 
+ *
  * Property checkers allow pools to verify on-chain that NFTs meet specific criteria
  * (e.g., ID ranges, merkle tree inclusion) before accepting them in swaps.
- * 
+ *
  * The factory creates clones of the implementations with specific parameters.
- * 
+ *
  * Usage:
  *      forge script script/04_DeployPropertyCheckers.s.sol:DeployPropertyCheckers --rpc-url <your_rpc_url> --broadcast --verify
  */
@@ -28,19 +28,16 @@ contract DeployPropertyCheckers is Script {
 
         // Deploy property checker implementations
         console.log("Deploying Property Checker implementations...");
-        
+
         MerklePropertyChecker merkleChecker = new MerklePropertyChecker();
         console.log("MerklePropertyChecker implementation deployed at:", address(merkleChecker));
-        
+
         RangePropertyChecker rangeChecker = new RangePropertyChecker();
         console.log("RangePropertyChecker implementation deployed at:", address(rangeChecker));
 
         // Deploy PropertyCheckerFactory
         console.log("\nDeploying PropertyCheckerFactory...");
-        PropertyCheckerFactory factory = new PropertyCheckerFactory(
-            merkleChecker,
-            rangeChecker
-        );
+        PropertyCheckerFactory factory = new PropertyCheckerFactory(merkleChecker, rangeChecker);
         console.log("PropertyCheckerFactory deployed at:", address(factory));
 
         vm.stopBroadcast();
@@ -50,7 +47,7 @@ contract DeployPropertyCheckers is Script {
         console.log("MerklePropertyChecker:", address(merkleChecker));
         console.log("RangePropertyChecker:", address(rangeChecker));
         console.log("PropertyCheckerFactory:", address(factory));
-        
+
         console.log("\n=== Usage ===");
         console.log("To create a MerklePropertyChecker instance:");
         console.log("  factory.createMerklePropertyChecker(bytes32 merkleRoot)");

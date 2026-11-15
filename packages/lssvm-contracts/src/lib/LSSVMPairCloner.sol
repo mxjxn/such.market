@@ -221,14 +221,13 @@ library LSSVMPairCloner {
             // compare expected bytecode with that of the queried contract
             let other := add(ptr, 0x49)
             extcodecopy(query, other, 0, 0x49)
-            result :=
+            result := and(
+                eq(mload(ptr), mload(other)),
                 and(
-                    eq(mload(ptr), mload(other)),
-                    and(
-                        eq(mload(add(ptr, 0x20)), mload(add(other, 0x20))),
-                        eq(mload(add(ptr, 0x29)), mload(add(other, 0x29)))
-                    )
+                    eq(mload(add(ptr, 0x20)), mload(add(other, 0x20))),
+                    eq(mload(add(ptr, 0x29)), mload(add(other, 0x29)))
                 )
+            )
         }
     }
 
@@ -255,14 +254,13 @@ library LSSVMPairCloner {
             // compare expected bytecode with that of the queried contract
             let other := add(ptr, 0x49)
             extcodecopy(query, other, 0, 0x49)
-            result :=
+            result := and(
+                eq(mload(ptr), mload(other)),
                 and(
-                    eq(mload(ptr), mload(other)),
-                    and(
-                        eq(mload(add(ptr, 0x20)), mload(add(other, 0x20))),
-                        eq(mload(add(ptr, 0x29)), mload(add(other, 0x29)))
-                    )
+                    eq(mload(add(ptr, 0x20)), mload(add(other, 0x20))),
+                    eq(mload(add(ptr, 0x29)), mload(add(other, 0x29)))
                 )
+            )
         }
     }
 
@@ -468,14 +466,13 @@ library LSSVMPairCloner {
             // compare expected bytecode with that of the queried contract
             let other := add(ptr, 0x49)
             extcodecopy(query, other, 0, 0x49)
-            result :=
+            result := and(
+                eq(mload(ptr), mload(other)),
                 and(
-                    eq(mload(ptr), mload(other)),
-                    and(
-                        eq(mload(add(ptr, 0x20)), mload(add(other, 0x20))),
-                        eq(mload(add(ptr, 0x29)), mload(add(other, 0x29)))
-                    )
+                    eq(mload(add(ptr, 0x20)), mload(add(other, 0x20))),
+                    eq(mload(add(ptr, 0x29)), mload(add(other, 0x29)))
                 )
+            )
         }
     }
 
@@ -502,14 +499,13 @@ library LSSVMPairCloner {
             // compare expected bytecode with that of the queried contract
             let other := add(ptr, 0x49)
             extcodecopy(query, other, 0, 0x49)
-            result :=
+            result := and(
+                eq(mload(ptr), mload(other)),
                 and(
-                    eq(mload(ptr), mload(other)),
-                    and(
-                        eq(mload(add(ptr, 0x20)), mload(add(other, 0x20))),
-                        eq(mload(add(ptr, 0x29)), mload(add(other, 0x29)))
-                    )
+                    eq(mload(add(ptr, 0x20)), mload(add(other, 0x20))),
+                    eq(mload(add(ptr, 0x29)), mload(add(other, 0x29)))
                 )
+            )
         }
     }
 }

@@ -153,6 +153,11 @@ export function getMarketplaceChainConfigs(): ChainRuntimeConfig[] {
   return ALL_CHAIN_CONFIGS.filter((c) => c.marketplaceAddress)
 }
 
+/** True when an on-chain marketplace (auction house) address is configured for this chain. */
+export function isAuctionHouseEnabled(chainId: number): boolean {
+  return Boolean(getChainConfig(chainId)?.marketplaceAddress)
+}
+
 export function getChainConfig(chainId: number): ChainRuntimeConfig | undefined {
   return ALL_CHAIN_CONFIGS.find((c) => c.id === chainId)
 }

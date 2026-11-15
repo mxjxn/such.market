@@ -32,22 +32,22 @@ import "../src/bonding-curves/GDACurve.sol";
  *      3. Pair Templates (ERC721ETH, ERC721ERC20, ERC1155ETH, ERC1155ERC20)
  *      4. LSSVMPairFactory
  *      5. VeryFastRouter
- * 
+ *
  *      It then whitelists all bonding curves and the router in the factory.
- * 
+ *
  * Required environment variables:
  *      - ROYALTY_REGISTRY: Address of the Manifold Royalty Registry for Base Sepolia
  *      - PROTOCOL_FEE_RECIPIENT: Address to receive protocol fees
  *      - PROTOCOL_FEE_MULTIPLIER: Protocol fee multiplier (in base 1e18, max 0.1e18 = 10%)
  *      - FACTORY_OWNER: Address that will own the factory contract
- * 
+ *
  * Optional environment variables:
  *      - DEPLOY_BONDING_CURVES: Set to "true" to deploy bonding curves (default: true)
  *      - LINEAR_CURVE_ADDRESS: Use existing LinearCurve address (if DEPLOY_BONDING_CURVES=false)
  *      - EXPONENTIAL_CURVE_ADDRESS: Use existing ExponentialCurve address
  *      - XYK_CURVE_ADDRESS: Use existing XykCurve address
  *      - GDA_CURVE_ADDRESS: Use existing GDACurve address
- * 
+ *
  * Usage:
  *      forge script script/DeployForBaseTestnet.s.sol:DeployForBaseTestnet --rpc-url $RPC_URL --broadcast --verify
  */
@@ -107,13 +107,13 @@ contract DeployForBaseTestnet is Script {
             console.log("Deploying new bonding curves...");
             linearCurve = new LinearCurve();
             console.log("LinearCurve:", address(linearCurve));
-            
+
             exponentialCurve = new ExponentialCurve();
             console.log("ExponentialCurve:", address(exponentialCurve));
-            
+
             xykCurve = new XykCurve();
             console.log("XykCurve:", address(xykCurve));
-            
+
             gdaCurve = new GDACurve();
             console.log("GDACurve:", address(gdaCurve));
         } else {
@@ -122,13 +122,13 @@ contract DeployForBaseTestnet is Script {
             address exponentialCurveAddr = vm.envAddress("EXPONENTIAL_CURVE_ADDRESS");
             address xykCurveAddr = vm.envAddress("XYK_CURVE_ADDRESS");
             address gdaCurveAddr = vm.envAddress("GDA_CURVE_ADDRESS");
-            
+
             // Cast to contract types (we won't use them directly, just store addresses)
             linearCurve = LinearCurve(linearCurveAddr);
             exponentialCurve = ExponentialCurve(exponentialCurveAddr);
             xykCurve = XykCurve(xykCurveAddr);
             gdaCurve = GDACurve(gdaCurveAddr);
-            
+
             console.log("LinearCurve:", address(linearCurve));
             console.log("ExponentialCurve:", address(exponentialCurve));
             console.log("XykCurve:", address(xykCurve));
@@ -151,13 +151,13 @@ contract DeployForBaseTestnet is Script {
         console.log("Deploying Pair Templates...");
         erc721ETHTemplate = new LSSVMPairERC721ETH(royaltyEngine);
         console.log("LSSVMPairERC721ETH:", address(erc721ETHTemplate));
-        
+
         erc721ERC20Template = new LSSVMPairERC721ERC20(royaltyEngine);
         console.log("LSSVMPairERC721ERC20:", address(erc721ERC20Template));
-        
+
         erc1155ETHTemplate = new LSSVMPairERC1155ETH(royaltyEngine);
         console.log("LSSVMPairERC1155ETH:", address(erc1155ETHTemplate));
-        
+
         erc1155ERC20Template = new LSSVMPairERC1155ERC20(royaltyEngine);
         console.log("LSSVMPairERC1155ERC20:", address(erc1155ERC20Template));
 
@@ -184,29 +184,29 @@ contract DeployForBaseTestnet is Script {
         // Check if deployer is the factory owner
         address factoryOwner = vm.envAddress("FACTORY_OWNER");
         address deployer = tx.origin;
-        
+
         // Fallback: verify factory's actual owner matches expected owner
         address actualOwner = factory.owner();
         bool shouldConfigure = (deployer == factoryOwner) || (actualOwner == factoryOwner);
-        
+
         if (shouldConfigure) {
             console.log("Whitelisting bonding curves...");
             factory.setBondingCurveAllowed(ICurve(address(linearCurve)), true);
             console.log("  LinearCurve whitelisted:", address(linearCurve));
-            
+
             factory.setBondingCurveAllowed(ICurve(address(exponentialCurve)), true);
             console.log("  ExponentialCurve whitelisted:", address(exponentialCurve));
-            
+
             factory.setBondingCurveAllowed(ICurve(address(xykCurve)), true);
             console.log("  XykCurve whitelisted:", address(xykCurve));
-            
+
             factory.setBondingCurveAllowed(ICurve(address(gdaCurve)), true);
             console.log("  GDACurve whitelisted:", address(gdaCurve));
-            
+
             console.log("Whitelisting router...");
             factory.setRouterAllowed(LSSVMRouter(payable(address(router))), true);
             console.log("  Router whitelisted:", address(router));
-            
+
             console.log("Configuration complete!");
         } else {
             console.log("WARNING: Deployer is not factory owner. Manual configuration required.");

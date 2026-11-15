@@ -20,7 +20,6 @@ abstract contract LSSVMPairERC1155 is LSSVMPair {
     /**
      * External state-changing functions
      */
-
     /**
      * @notice Sends token to the pair in exchange for any `numNFTs` NFTs
      * @dev To compute the amount of token to send, call bondingCurve.getBuyInfo.

@@ -59,37 +59,26 @@ contract RBF is IOwnershipTransferReceiver, ERC721Holder, ReentrancyGuard {
         uint256 minOutputAmount
     ) external payable {
         // Only 1 loan out at a time
-        require(
-            openLoanForBorrower[msg.sender].pairDebtor == address(0),
-            "Outstanding loan"
-        );
+        require(openLoanForBorrower[msg.sender].pairDebtor == address(0), "Outstanding loan");
 
         LoanMetadata memory loanMetadata = pairData[pairAddress];
 
         // Rate limit checks
+        require(idsToBorrow.length <= loanMetadata.maxAmountPerBorrow, "Too many");
         require(
-            idsToBorrow.length <= loanMetadata.maxAmountPerBorrow,
-            "Too many"
-        );
-        require(
-            block.timestamp >=
-                loanMetadata.lastBorrowTime +
-                    (loanMetadata.delayBetweenBorrows *
-                        DELAY_BETWEEN_BORROWS_MULTIPLIER),
+            block.timestamp
+                >= loanMetadata.lastBorrowTime + (loanMetadata.delayBetweenBorrows * DELAY_BETWEEN_BORROWS_MULTIPLIER),
             "Too soon"
         );
 
         // Only for valid ERC721 ETH pairs
         require(factory.isValidPair(pairAddress), "Invalid pair");
         require(
-            LSSVMPair(pairAddress).pairVariant() ==
-                ILSSVMPairFactoryLike.PairVariant.ERC721_ETH,
-            "Invalid pair type"
+            LSSVMPair(pairAddress).pairVariant() == ILSSVMPairFactoryLike.PairVariant.ERC721_ETH, "Invalid pair type"
         );
 
         // Price checks
-        (, , , uint256 bondingCurvePrice, , ) = LSSVMPair(pairAddress)
-            .getBuyNFTQuote(idsToBorrow[0], 1);
+        (,,, uint256 bondingCurvePrice,,) = LSSVMPair(pairAddress).getBuyNFTQuote(idsToBorrow[0], 1);
         uint256 minLoanPrice = MIN_PRICE_MULTIPLIER * loanMetadata.minPrice;
         if (bondingCurvePrice > minLoanPrice) {
             minLoanPrice = bondingCurvePrice;
@@ -100,16 +89,14 @@ contract RBF is IOwnershipTransferReceiver, ERC721Holder, ReentrancyGuard {
         LSSVMPair(pairAddress).withdrawERC721(nft, idsToBorrow);
 
         // Collateral calculation (scale up by safety factor)
-        uint256 collateralAmount = _calculateCollateralAmount(
-            minLoanPrice * idsToBorrow.length
-        );
+        uint256 collateralAmount = _calculateCollateralAmount(minLoanPrice * idsToBorrow.length);
 
         // If target pool to swap with is address(0), do the collateral check directly
         if (pairToSwapWith == address(0)) {
             require(msg.value == collateralAmount, "Insufficient ETH");
 
             // Transfer NFTs to caller directly
-            for (uint i; i < idsToBorrow.length; ) {
+            for (uint256 i; i < idsToBorrow.length;) {
                 nft.transferFrom(address(this), msg.sender, idsToBorrow[i]);
                 unchecked {
                     ++i;
@@ -121,8 +108,7 @@ contract RBF is IOwnershipTransferReceiver, ERC721Holder, ReentrancyGuard {
             // Only for valid ERC721 ETH pairs
             require(factory.isValidPair(pairToSwapWith), "Invalid pair");
             require(
-                LSSVMPair(pairToSwapWith).pairVariant() ==
-                    ILSSVMPairFactoryLike.PairVariant.ERC721_ETH,
+                LSSVMPair(pairToSwapWith).pairVariant() == ILSSVMPairFactoryLike.PairVariant.ERC721_ETH,
                 "Invalid pair type"
             );
 
@@ -131,18 +117,10 @@ contract RBF is IOwnershipTransferReceiver, ERC721Holder, ReentrancyGuard {
 
             // Swap directly with the pool
             nft.setApprovalForAll(pairToSwapWith, true);
-            LSSVMPair(pairToSwapWith).swapNFTsForToken(
-                idsToBorrow,
-                minOutputAmount,
-                payable(address(this)),
-                false,
-                address(0)
-            );
+            LSSVMPair(pairToSwapWith)
+                .swapNFTsForToken(idsToBorrow, minOutputAmount, payable(address(this)), false, address(0));
 
-            require(
-                address(this).balance - preSwapBalance >= collateralDiff,
-                "Not enough"
-            );
+            require(address(this).balance - preSwapBalance >= collateralDiff, "Not enough");
             nft.setApprovalForAll(pairToSwapWith, false);
         }
 
@@ -159,9 +137,7 @@ contract RBF is IOwnershipTransferReceiver, ERC721Holder, ReentrancyGuard {
         });
     }
 
-    function repay(
-        uint256[] calldata idsToRepay
-    ) external payable nonReentrant {
+    function repay(uint256[] calldata idsToRepay) external payable nonReentrant {
         require(idsToRepay.length > 0, "Empty");
 
         // Get loan data
@@ -172,12 +148,9 @@ contract RBF is IOwnershipTransferReceiver, ERC721Holder, ReentrancyGuard {
 
         // Calculate interest
         // Interest = min interest * amount + interest rate * amount time
-        uint256 interestToPay = (MIN_INTEREST * idsToRepay.length) +
-            (loanInfo.collateralAmount *
-                (block.timestamp - loanInfo.loanStartTime) *
-                INTEREST_PER_DAY_NUMER) /
-            INTEREST_PER_DAY_DENOM /
-            SECONDS_PER_DAY;
+        uint256 interestToPay = (MIN_INTEREST * idsToRepay.length)
+            + (loanInfo.collateralAmount * (block.timestamp - loanInfo.loanStartTime) * INTEREST_PER_DAY_NUMER)
+            / INTEREST_PER_DAY_DENOM / SECONDS_PER_DAY;
 
         // Transfer from interest from caller to pair
         require(msg.value >= interestToPay, "Too little");
@@ -188,7 +161,7 @@ contract RBF is IOwnershipTransferReceiver, ERC721Holder, ReentrancyGuard {
 
         // Transfer NFTs from caller to pair
         IERC721 nft = IERC721(LSSVMPair(loanInfo.pairDebtor).nft());
-        for (uint i; i < loanInfo.numNFTsBorrowed; ) {
+        for (uint256 i; i < loanInfo.numNFTsBorrowed;) {
             nft.transferFrom(msg.sender, loanInfo.pairDebtor, idsToRepay[i]);
             unchecked {
                 ++i;
@@ -200,17 +173,13 @@ contract RBF is IOwnershipTransferReceiver, ERC721Holder, ReentrancyGuard {
         LoanInfo memory loanInfo = openLoanForBorrower[loanOriginator];
 
         // Can only liquidate after loan is expired
-        require(
-            block.timestamp > loanInfo.loanStartTime + MAX_LOAN_DURATION,
-            "Not yet"
-        );
+        require(block.timestamp > loanInfo.loanStartTime + MAX_LOAN_DURATION, "Not yet");
 
         // Delete loan data
         delete openLoanForBorrower[loanOriginator];
 
         // Calculate split between liquidator and pool
-        uint256 liqIncentive = (loanInfo.collateralAmount *
-            LIQ_INCENTIVE_NUMER) / LIQ_INCENTIVE_DENOM;
+        uint256 liqIncentive = (loanInfo.collateralAmount * LIQ_INCENTIVE_NUMER) / LIQ_INCENTIVE_DENOM;
         uint256 poolCollateralAmount = loanInfo.collateralAmount - liqIncentive;
 
         // Send collateral to pool
@@ -220,22 +189,14 @@ contract RBF is IOwnershipTransferReceiver, ERC721Holder, ReentrancyGuard {
         payable(msg.sender).safeTransferETH(liqIncentive);
     }
 
-    function onOwnershipTransferred(
-        address oldOwner,
-        bytes memory data
-    ) external payable {
+    function onOwnershipTransferred(address oldOwner, bytes memory data) external payable {
         // Only for valid ERC721 ETH pairs
         require(factory.isValidPair(msg.sender), "Invalid pair");
         require(
-            LSSVMPair(msg.sender).pairVariant() ==
-                ILSSVMPairFactoryLike.PairVariant.ERC721_ETH,
-            "Invalid pair type"
+            LSSVMPair(msg.sender).pairVariant() == ILSSVMPairFactoryLike.PairVariant.ERC721_ETH, "Invalid pair type"
         );
-        (
-            uint24 minPrice,
-            uint16 delayBetweenBorrows,
-            uint16 maxAmountPerBorrow
-        ) = abi.decode(data, (uint24, uint16, uint16));
+        (uint24 minPrice, uint16 delayBetweenBorrows, uint16 maxAmountPerBorrow) =
+            abi.decode(data, (uint24, uint16, uint16));
         pairData[msg.sender] = LoanMetadata({
             prevOwner: oldOwner,
             lastBorrowTime: 0,
@@ -246,25 +207,20 @@ contract RBF is IOwnershipTransferReceiver, ERC721Holder, ReentrancyGuard {
     }
 
     function reclaimPairs(address[] calldata pairAddresses) external payable {
-        for (uint i; i < pairAddresses.length; ) {
+        for (uint256 i; i < pairAddresses.length;) {
             LoanMetadata memory loanMetadata = pairData[pairAddresses[i]];
             require(loanMetadata.prevOwner == msg.sender, "Not owner");
-            OwnableWithTransferCallback(pairAddresses[i]).transferOwnership(
-                msg.sender,
-                ""
-            );
+            OwnableWithTransferCallback(pairAddresses[i]).transferOwnership(msg.sender, "");
             unchecked {
                 ++i;
             }
         }
     }
 
-    function _calculateCollateralAmount(
-        uint256 c
-    ) private pure returns (uint256) {
+    function _calculateCollateralAmount(uint256 c) private pure returns (uint256) {
         return (c * COLLATERAL_NUMER) / COLLATERAL_DENOM;
     }
-    
+
     // Receive ETH
     receive() external payable {}
 }

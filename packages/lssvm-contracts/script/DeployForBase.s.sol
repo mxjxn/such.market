@@ -25,19 +25,19 @@ import "../src/bonding-curves/ICurve.sol";
  *      2. Pair Templates (ERC721ETH, ERC721ERC20, ERC1155ETH, ERC1155ERC20)
  *      3. LSSVMPairFactory
  *      4. VeryFastRouter
- * 
+ *
  *      It then whitelists sudoswap's bonding curves (deployed on Base Mainnet):
  *      - LinearCurve: 0xe41352CB8D9af18231E05520751840559C2a548A
  *      - ExponentialCurve: 0x9506C0E5CEe9AD1dEe65B3539268D61CCB25aFB6
  *      - XYKCurve: 0xd0A2f4ae5E816ec09374c67F6532063B60dE037B
  *      - GDACurve: 0x4f1627be4C72aEB9565D4c751550C4D262a96B51
- * 
+ *
  * Required environment variables:
  *      - ROYALTY_REGISTRY: Address of the Manifold Royalty Registry for Base
  *      - PROTOCOL_FEE_RECIPIENT: Address to receive protocol fees
  *      - PROTOCOL_FEE_MULTIPLIER: Protocol fee multiplier (in base 1e18, max 0.1e18 = 10%)
  *      - FACTORY_OWNER: Address that will own the factory contract
- * 
+ *
  * Usage:
  *      forge script script/DeployForBase.s.sol:DeployForBase --rpc-url $RPC_URL --broadcast --verify
  */
@@ -99,13 +99,13 @@ contract DeployForBase is Script {
         console.log("Deploying Pair Templates...");
         erc721ETHTemplate = new LSSVMPairERC721ETH(royaltyEngine);
         console.log("LSSVMPairERC721ETH:", address(erc721ETHTemplate));
-        
+
         erc721ERC20Template = new LSSVMPairERC721ERC20(royaltyEngine);
         console.log("LSSVMPairERC721ERC20:", address(erc721ERC20Template));
-        
+
         erc1155ETHTemplate = new LSSVMPairERC1155ETH(royaltyEngine);
         console.log("LSSVMPairERC1155ETH:", address(erc1155ETHTemplate));
-        
+
         erc1155ERC20Template = new LSSVMPairERC1155ERC20(royaltyEngine);
         console.log("LSSVMPairERC1155ERC20:", address(erc1155ERC20Template));
 
@@ -132,29 +132,29 @@ contract DeployForBase is Script {
         // Check if deployer is the factory owner
         address factoryOwner = vm.envAddress("FACTORY_OWNER");
         address deployer = tx.origin; // Use tx.origin for deployer address
-        
+
         // Fallback: verify factory's actual owner matches expected owner
         address actualOwner = factory.owner();
         bool shouldConfigure = (deployer == factoryOwner) || (actualOwner == factoryOwner);
-        
+
         if (shouldConfigure) {
             console.log("Whitelisting sudoswap bonding curves...");
             factory.setBondingCurveAllowed(ICurve(LINEAR_CURVE), true);
             console.log("  LinearCurve whitelisted:", LINEAR_CURVE);
-            
+
             factory.setBondingCurveAllowed(ICurve(EXPONENTIAL_CURVE), true);
             console.log("  ExponentialCurve whitelisted:", EXPONENTIAL_CURVE);
-            
+
             factory.setBondingCurveAllowed(ICurve(XYK_CURVE), true);
             console.log("  XYKCurve whitelisted:", XYK_CURVE);
-            
+
             factory.setBondingCurveAllowed(ICurve(GDA_CURVE), true);
             console.log("  GDACurve whitelisted:", GDA_CURVE);
-            
+
             console.log("Whitelisting router...");
             factory.setRouterAllowed(LSSVMRouter(payable(address(router))), true);
             console.log("  Router whitelisted:", address(router));
-            
+
             console.log("Configuration complete!");
         } else {
             console.log("WARNING: Deployer is not factory owner. Manual configuration required.");

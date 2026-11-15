@@ -1,6 +1,23 @@
 # such.market roadmap
 
-Marketplace-only surface (pools + auctions). Artist/studio flows stay in cryptoart.studio.
+Marketplace surface: **LSSVM pools**, **auctions**, and **fixed-price** listings on the shared marketplace contract. Minting and collection launches stay in **cryptoart.studio**.
+
+## Day-one launch scope (Max)
+
+| In scope at launch | Out of scope (post-launch) |
+| --- | --- |
+| **LSSVM pools** (such.market) | **Barter** / Seaport bundle trading — see [BARTER_OFFERS.md](./BARTER_OFFERS.md) |
+| **Auctions** + **fixed-price** listings on the **already-deployed auction house / marketplace contract** | such.market as the primary marketing entry point |
+| **Browse / trade / pool** UX in such.market + embeds | Full barter order book, conduit, compliance phases |
+
+**Go-to-market:** Launch is led by **cryptoart.studio** and **cryptoart.social**. **such.market** stays **low-profile** behind those tools at first (embeds, deep links, power-user surface — not the main public front door).
+
+**Listing flows (two surfaces, one contract):**
+
+1. **Studio (cryptoart-studio repo)** — creators list **directly onto the marketplace contract** from studio workflows (mints, launches) **without visiting such.market**. Document the dependency here only; implementation is not in this repo.
+2. **such.market Sell (`/sell`)** — any holder can list **auction** or **fixed-price** on the **same marketplace contract**. Stub at `/sell` today; full wallet → NFT picker → `createListing` UX is a **roadmap item for this repo** (below).
+
+**Create listing CTAs** in the app point at **`/sell`** (not studio deep-links). **Create pool** remains **`/create`**.
 
 ## Done (this branch / PR #4)
 
@@ -8,7 +25,7 @@ Marketplace-only surface (pools + auctions). Artist/studio flows stay in cryptoa
 - [x] **Multi-chain config** — Base (`8453`), Base Sepolia (`84532`), Ethereum (`1` — LSSVM addresses via env after deploy).
 - [x] **Address alignment** — `apps/suchmarket` + `@mxjxn/lssvm-abis` match Base mainnet (`0xF6B4…` / `0x4352…`) and Base Sepolia deployment docs; RPC verification script `apps/suchmarket/scripts/verify-lssvm-deployments.ts`.
 - [x] **Indexer** — Postgres schema + cron sync + CLI (`apps/suchmarket/indexer/`).
-- [x] **Auctions** — marketplace listings API + `/auctions` UI (RPC fallback without DB).
+- [x] **Auctions** — marketplace listings API + `/auctions` UI; **production requires Postgres indexer** (RPC `CreateListing` scan is dev-only).
 - [x] **LSSVM spike (Base Sepolia)** — Foundry fork tests `packages/lssvm-contracts/test/SuchmarketBaseSepoliaFork.t.sol`; vitest quote decomposition aligned to fork fixtures.
 
 ## Spike results (summary)
@@ -18,10 +35,17 @@ Marketplace-only surface (pools + auctions). Artist/studio flows stay in cryptoa
 | Factory + router bytecode on Base Sepolia | OK |
 | Four curves + router whitelisted | OK |
 | Config vs deployment docs (`84532`, `8453`) | OK |
-| Fork E2E swaps (create pool → router buy → sell) | **4/4 Foundry tests pass** |
+| Fork E2E swaps (create pool → router buy → sell) | **Manual / local only** (not in CI) |
 | App quote math vs contract quote fields | Vitest fixtures from fork |
 
-See PR #4 description for the latest CI run.
+**Fork tests (manual):** CI runs scoped bonding-curve unit tests only. To run Base Sepolia fork smoke tests locally (needs RPC, no secrets in CI):
+
+```bash
+cd packages/lssvm-contracts
+forge test --match-path 'test/SuchmarketBaseSepoliaFork.t.sol' -vvv
+```
+
+Default RPC: `foundry.toml` `base_sepolia` endpoint; override with `FOUNDRY_ETH_RPC_URL` if needed.
 
 ## Ethereum mainnet LSSVM — decision & deploy plan (Max)
 
@@ -44,7 +68,7 @@ Configured in the `LSSVMPairFactory` constructor via deploy env (see `DeployForB
 
 | Setting | Env var (Foundry, local only) | On-chain |
 | --- | --- | --- |
-| Protocol fee recipient | `PROTOCOL_FEE_RECIPIENT` | `protocolFeeRecipient` — treasury/multisig that receives protocol share of trades |
+| Protocol fee recipient | `PROTOCOL_FEE_RECIPIENT` | `protocolFeeRecipient` — **deployer wallet at Ethereum mainnet launch**; treasury/multisig later via factory owner controls (Max deploys locally; agents do not set addresses or keys) |
 | Protocol fee rate | `PROTOCOL_FEE_MULTIPLIER` | `protocolFeeMultiplier` — **1e18 = 100%** of trade; max **`0.1e18` (10%)** per `MAX_PROTOCOL_FEE`. Example: `10000000000000000` = **1%** (same default as `DEPLOY_BASE.md`) |
 | Factory admin | `FACTORY_OWNER` | `owner()` — can `changeProtocolFeeRecipient`, `changeProtocolFeeMultiplier`, whitelist curves/routers |
 | Royalties | `ROYALTY_REGISTRY` | Passed into `RoyaltyEngine` — use Manifold universal registry where applicable (see `DEPLOY_BASE.md`) |
@@ -61,7 +85,7 @@ Agents do **not** run broadcast or touch `.env*` files.
    - [ ] Foundry installed; `cd packages/lssvm-contracts` && `forge build`
    - [ ] Ethereum mainnet RPC URL (Alchemy/Infura/etc.)
    - [ ] Deployer wallet funded with ETH for gas
-   - [ ] Decide `PROTOCOL_FEE_RECIPIENT`, `PROTOCOL_FEE_MULTIPLIER`, `FACTORY_OWNER` (often multisig)
+   - [ ] Set `PROTOCOL_FEE_RECIPIENT` to **deployer wallet** at launch; `PROTOCOL_FEE_MULTIPLIER` as desired; `FACTORY_OWNER` (multisig when ready)
    - [ ] Create `packages/lssvm-contracts/.env.local` with `RPC_URL`, `PRIVATE_KEY`, `ETHERSCAN_API_KEY`, `ROYALTY_REGISTRY`, `PROTOCOL_FEE_RECIPIENT`, `PROTOCOL_FEE_MULTIPLIER`, `FACTORY_OWNER` (per `DEPLOY_BASE.md`; never commit)
 
 2. **Deploy**
@@ -83,18 +107,43 @@ Agents do **not** run broadcast or touch `.env*` files.
    - [ ] Point production at sudoswap canonical factory `0xA020…` / router `0x090C…`
    - [ ] Commit private keys or `.env.local`
 
+## Remaining — such.market Sell flow
+
+| Step | Owner |
+| --- | --- |
+| **`/sell` UX** — auction + fixed-price on marketplace contract (same ABI as studio; any owned NFT) | Agent |
+| Wire to marketplace `createListing` + validation (chain, royalties hints) | Agent |
+| Link from home “Create listing” and legacy `/create/auction`, `/create/fixed-price` | **Done** (stub + redirects) |
+
 ## Remaining — Sepolia beta
 
 | Step | Owner |
 | --- | --- |
-| Hosted Postgres + `DATABASE_URL` on Vercel | **Max** |
+| Vercel Postgres `DATABASE_URL` + Vercel cron for indexer (**production hosting — decided**; required for production auction browse) | **Max** |
 | Vercel project for `apps/suchmarket`, preview URLs | **Max** |
 | Cron secret / `CRON_SECRET` for indexer route | **Max** |
-| Base Sepolia marketplace contract in env (if not using hardcoded dev defaults) | **Max** |
+| Base Sepolia marketplace contract + `NEXT_PUBLIC_MARKETPLACE_ADDRESS_84532` (auctions UI hidden until set) | **Max** |
 | SettingsFactory + property-checker pools in UI | Agent + **Max** (deploy checker addresses if needed) |
 | Royalties UX for studio collections (2981 / engine hints) | Agent |
-| Indexer hosting runbook (Neon/Railway/etc.) | **Max** |
 | QA on live Sepolia pools + TestNFT contracts | Agent + Max |
+
+## Monorepo split (post-relaunch)
+
+The legacy **cryptoart-studio** monorepo still bundles **studio** (creator/auction tools) and **cryptoart.social** (feed/embed surfaces). Post-relaunch, split them into separate repositories without breaking shared LSSVM/market packages.
+
+| Step | Owner | Notes |
+| --- | --- | --- |
+| Extract shared npm packages (`@mxjxn/lssvm-abis`, any future shared UI/utils) | Agent + **Max** | Publish or vendor from one canonical repo first |
+| `git subtree` / `git filter-repo` split: `studio` app + its-only docs | **Max** | Keep AGPL license and deployment history where possible |
+| `git subtree` / `git filter-repo` split: `cryptoart.social` app + embed docs | **Max** | Point embeds at production `such.market` URLs |
+| Retire or archive the combined monorepo | **Max** | README redirects to the three products |
+
+**Repo roles after such.market import:**
+
+- **`mxjxn/such-lssvm`** — generic, unbranded LSSVM reference (contracts toolbelt, deploy scripts, upstream-oriented docs). No such.market branding or production deployment addresses as source of truth.
+- **`mxjxn/such.market`** (this repo) — branded **such.market** product: `apps/suchmarket`, branded deployments, operator runbooks (`ROADMAP.md`, `ENV_VARS.md`), and marketplace-specific Foundry smoke tests.
+
+Studio and cryptoart.social stay separate git homes once split; they depend on published/shared packages rather than a single turbo root.
 
 ## Barter offers (post-launch)
 
@@ -102,8 +151,7 @@ Peer **bundle-for-bundle** trading on **Seaport 1.6** (nav: **Barter**). Post–
 
 | Step | Owner |
 | --- | --- |
-| Review design + open questions | **Max** |
-| Conduit + fee recipient per chain | **Max** |
+| **`BarterFeeConfig` + conduit deploy** (deployer owner → multisig via `Ownable2Step`) | **Max** |
 | Implementation phases 1–4 | Agent (after launch) |
 
 ## Remaining — mainnet

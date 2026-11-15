@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchLiveAuctions } from '@/lib/auctions-server'
 import { isSupportedChainId, isChainOperational } from '@/lib/chains'
-import { getChainConfig } from '@/lib/chain-config'
+import {
+  AUCTION_INDEXER_NOT_CONFIGURED_MESSAGE,
+  getAuctionBrowseStatus,
+} from '@/lib/auction-indexer'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -11,17 +14,29 @@ export async function GET(request: NextRequest) {
   if (!isSupportedChainId(chainId)) {
     return NextResponse.json({ error: 'Unsupported chain' }, { status: 400 })
   }
-  if (!getChainConfig(chainId)?.marketplaceAddress) {
+  const browseStatus = getAuctionBrowseStatus(chainId)
+  if (browseStatus === 'marketplace_not_configured') {
     return NextResponse.json(
-      { error: `Marketplace not configured for chain ${chainId}` },
+      { error: `Marketplace not configured for chain ${chainId}`, indexerStatus: 'marketplace_not_configured' },
       { status: 400 }
+    )
+  }
+  if (browseStatus === 'indexer_not_configured') {
+    return NextResponse.json(
+      {
+        auctions: [],
+        chainId,
+        indexerStatus: 'not_configured',
+        error: AUCTION_INDEXER_NOT_CONFIGURED_MESSAGE,
+      },
+      { status: 503 }
     )
   }
   void isChainOperational
 
   try {
     const auctions = await fetchLiveAuctions(chainId, limit)
-    return NextResponse.json({ auctions, chainId })
+    return NextResponse.json({ auctions, chainId, indexerStatus: 'ready' })
   } catch (error) {
     console.error('[api/auctions]', error)
     return NextResponse.json(

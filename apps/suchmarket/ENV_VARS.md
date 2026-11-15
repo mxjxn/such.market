@@ -6,7 +6,7 @@ Set these in the Vercel project for `apps/suchmarket`. No private keys in the ap
 
 | Variable | Purpose |
 |----------|---------|
-| `DATABASE_URL` | Postgres for the RPC indexer (pools + listing IDs + cursors) |
+| `DATABASE_URL` | **Vercel Postgres** in production — RPC indexer (pools + listing IDs + cursors) |
 | `CRON_SECRET` | Bearer token for `/api/cron/sync-indexer` |
 | `INDEXER_MAX_BLOCKS_PER_RUN` | Max blocks per cron tick (default `250000`) |
 | `INDEXER_LOG_CHUNK` | `eth_getLogs` chunk size (default `50000`) |
@@ -40,13 +40,15 @@ Set these in the Vercel project for `apps/suchmarket`. No private keys in the ap
 | `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` | |
 | `NEXT_PUBLIC_ROUTER_ADDRESS_84532` | Defaults from package |
 | `NEXT_PUBLIC_FACTORY_ADDRESS_84532` | Defaults from package |
-| `NEXT_PUBLIC_MARKETPLACE_ADDRESS_84532` | |
+| `NEXT_PUBLIC_MARKETPLACE_ADDRESS_84532` | **Unset by default** — auctions nav/UI stay hidden on Base Sepolia until a testnet marketplace exists |
 | `INDEXER_FACTORY_START_BLOCK_84532` | Default `18000000` |
 | `INDEXER_MARKETPLACE_START_BLOCK_84532` | Default `18000000` |
 
 ## Ethereum Mainnet (chain `1`)
 
-such.market uses **mxjxn's own LSSVM factory + router** on Ethereum (not sudoswap's canonical deployment). There are no hardcoded mainnet LSSVM addresses in the app — set these after Max deploys (see [`docs/ROADMAP.md`](./docs/ROADMAP.md)).
+such.market uses **mxjxn's own LSSVM factory + router** on Ethereum (not sudoswap's canonical deployment). There are no hardcoded mainnet LSSVM addresses in the app — set these after Max deploys locally (see [`docs/ROADMAP.md`](./docs/ROADMAP.md)).
+
+At deploy time (Foundry env on Max's machine only, never committed): set **`PROTOCOL_FEE_RECIPIENT`** to the **deployer wallet** for the initial Ethereum mainnet factory; move to a treasury/multisig later via `changeProtocolFeeRecipient` / factory `owner()`.
 
 | Variable | Notes |
 |----------|-------|
@@ -58,6 +60,10 @@ such.market uses **mxjxn's own LSSVM factory + router** on Ethereum (not sudoswa
 | `INDEXER_MARKETPLACE_START_BLOCK_1` | Set to marketplace deployment block |
 
 ## Indexer
+
+**Production (decided):** **Vercel Postgres** for `DATABASE_URL` plus **Vercel cron** (`vercel.json` → `/api/cron/sync-indexer` every 15 minutes with `CRON_SECRET`). No separate indexer host required for launch.
+
+**Auctions:** In `NODE_ENV=production`, `/api/auctions` returns **503 / indexer not configured** without `DATABASE_URL`. Dev/local may use RPC `CreateListing` log scans as a fallback. Fork Foundry tests (`SuchmarketBaseSepoliaFork.t.sol`) are **manual only** — see `docs/ROADMAP.md`.
 
 ### Migrations
 

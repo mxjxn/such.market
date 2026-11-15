@@ -10,6 +10,7 @@ import {
   type ContractListing,
 } from './marketplace'
 import { hasDatabase, listAuctionListingIds } from '@/indexer/db'
+import { allowAuctionRpcDiscovery } from './auction-indexer'
 import { resolveIPFSUrl } from './ipfs'
 
 export type AuctionSummary = {
@@ -133,11 +134,13 @@ async function discoverListingIdsRpc(chainId: number, limit: number): Promise<bi
 async function discoverListingIds(chainId: number, limit: number): Promise<bigint[]> {
   if (hasDatabase()) {
     try {
-      const ids = await listAuctionListingIds(chainId, limit)
-      if (ids.length) return ids
+      return await listAuctionListingIds(chainId, limit)
     } catch {
-      /* fall through */
+      return []
     }
+  }
+  if (!allowAuctionRpcDiscovery()) {
+    return []
   }
   return discoverListingIdsRpc(chainId, limit)
 }

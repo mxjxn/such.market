@@ -56,9 +56,10 @@ abstract contract LSSVMPairERC20 is LSSVMPair {
 
             // Cache state and then call router to transfer tokens from user
             uint256 beforeBalance = token().balanceOf(_assetRecipient);
-            LSSVMRouter(payable(msg.sender)).pairTransferERC20From(
-                token(), routerCaller, _assetRecipient, inputAmountExcludingRoyalty - protocolFee
-            );
+            LSSVMRouter(payable(msg.sender))
+                .pairTransferERC20From(
+                    token(), routerCaller, _assetRecipient, inputAmountExcludingRoyalty - protocolFee
+                );
 
             // Verify token transfer (protect pair against malicious router)
             ERC20 token_ = token();
@@ -69,9 +70,8 @@ abstract contract LSSVMPairERC20 is LSSVMPair {
             // Transfer royalties (if they exist)
             for (uint256 i; i < royaltyRecipients.length;) {
                 beforeBalance = token_.balanceOf(royaltyRecipients[i]);
-                LSSVMRouter(payable(msg.sender)).pairTransferERC20From(
-                    token_, routerCaller, royaltyRecipients[i], royaltyAmounts[i]
-                );
+                LSSVMRouter(payable(msg.sender))
+                    .pairTransferERC20From(token_, routerCaller, royaltyRecipients[i], royaltyAmounts[i]);
                 if (token_.balanceOf(royaltyRecipients[i]) - beforeBalance != royaltyAmounts[i]) {
                     revert LSSVMPairERC20__RoyaltyNotPaid();
                 }
@@ -82,9 +82,8 @@ abstract contract LSSVMPairERC20 is LSSVMPair {
 
             // Take protocol fee (if it exists)
             if (protocolFee != 0) {
-                LSSVMRouter(payable(msg.sender)).pairTransferERC20From(
-                    token_, routerCaller, address(factory()), protocolFee
-                );
+                LSSVMRouter(payable(msg.sender))
+                    .pairTransferERC20From(token_, routerCaller, address(factory()), protocolFee);
             }
         } else {
             // Transfer tokens directly (sans the protocol fee)
