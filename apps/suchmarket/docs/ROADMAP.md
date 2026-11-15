@@ -8,7 +8,7 @@ Marketplace-only surface (pools + auctions). Artist/studio flows stay in cryptoa
 - [x] **Multi-chain config** — Base (`8453`), Base Sepolia (`84532`), Ethereum (`1` — LSSVM addresses via env after deploy).
 - [x] **Address alignment** — `apps/suchmarket` + `@mxjxn/lssvm-abis` match Base mainnet (`0xF6B4…` / `0x4352…`) and Base Sepolia deployment docs; RPC verification script `apps/suchmarket/scripts/verify-lssvm-deployments.ts`.
 - [x] **Indexer** — Postgres schema + cron sync + CLI (`apps/suchmarket/indexer/`).
-- [x] **Auctions** — marketplace listings API + `/auctions` UI (RPC fallback without DB).
+- [x] **Auctions** — marketplace listings API + `/auctions` UI; **production requires Postgres indexer** (RPC `CreateListing` scan is dev-only).
 - [x] **LSSVM spike (Base Sepolia)** — Foundry fork tests `packages/lssvm-contracts/test/SuchmarketBaseSepoliaFork.t.sol`; vitest quote decomposition aligned to fork fixtures.
 
 ## Spike results (summary)
@@ -18,10 +18,17 @@ Marketplace-only surface (pools + auctions). Artist/studio flows stay in cryptoa
 | Factory + router bytecode on Base Sepolia | OK |
 | Four curves + router whitelisted | OK |
 | Config vs deployment docs (`84532`, `8453`) | OK |
-| Fork E2E swaps (create pool → router buy → sell) | **4/4 Foundry tests pass** |
+| Fork E2E swaps (create pool → router buy → sell) | **Manual / local only** (not in CI) |
 | App quote math vs contract quote fields | Vitest fixtures from fork |
 
-See PR #4 description for the latest CI run.
+**Fork tests (manual):** CI runs scoped bonding-curve unit tests only. To run Base Sepolia fork smoke tests locally (needs RPC, no secrets in CI):
+
+```bash
+cd packages/lssvm-contracts
+forge test --match-path 'test/SuchmarketBaseSepoliaFork.t.sol' -vvv
+```
+
+Default RPC: `foundry.toml` `base_sepolia` endpoint; override with `FOUNDRY_ETH_RPC_URL` if needed.
 
 ## Ethereum mainnet LSSVM — decision & deploy plan (Max)
 
@@ -87,7 +94,7 @@ Agents do **not** run broadcast or touch `.env*` files.
 
 | Step | Owner |
 | --- | --- |
-| Vercel Postgres `DATABASE_URL` + Vercel cron for indexer (**production hosting — decided**) | **Max** |
+| Vercel Postgres `DATABASE_URL` + Vercel cron for indexer (**production hosting — decided**; required for production auction browse) | **Max** |
 | Vercel project for `apps/suchmarket`, preview URLs | **Max** |
 | Cron secret / `CRON_SECRET` for indexer route | **Max** |
 | Base Sepolia marketplace contract + `NEXT_PUBLIC_MARKETPLACE_ADDRESS_84532` (auctions UI hidden until set) | **Max** |

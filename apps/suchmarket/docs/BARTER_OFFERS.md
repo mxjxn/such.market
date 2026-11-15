@@ -28,7 +28,9 @@ Orders are **EIP-712 signed** and fulfilled on-chain via Seaport; such.market ho
 | 8 | **Zones:** **Launch with `zone = address(0)`**. Custom zones ship **later**, together with **barter metadata standards** for richer offer types. |
 | 9 | **Compliance:** Required — see §Compliance. **Legal review before expanding** allowed barter types beyond Phase 1. |
 | 10 | **Nav label:** **Barter** (not “Trade” / not “Barter offers” in the tab). |
-| 11 | **NFT verification:** Studio mints auto-verified; others apply/admin-curate; unverified offers allowed with badge; default feeds hide unverified except profile/followers + toggle. **No refundable deposit.** |
+| 11 | **NFT verification:** **Studio mints → auto-verified** (`studio_auto`). **Manually curated** allowlist (`admin_curated`). **Everyone else** may still offer (unverified badge); apply via **`/verify-collection`** stub form → queued for admin review (`application`). Default feeds hide unverified except profile/followers + toggle. **No refundable deposit.** |
+| 12 | **Moderation SLA:** Flagged barter offers (`barter_reports`) **reviewed within 24 hours** (admin hide/delist; on-chain cancel when policy requires). |
+| 13 | **Create listing (tentative):** Non-pool listing types (auction, fixed price) **deep-link to studio** via `NEXT_PUBLIC_STUDIO_URL` (default `https://cryptoart.studio` until Max confirms). such.market keeps pool creation only. |
 
 ---
 
@@ -294,8 +296,9 @@ Compliance is **in scope from day one**. Primary risk is **fake/impersonating co
 | Status | Rule |
 | --- | --- |
 | **Auto-verified** | Collections **minted via cryptoart.studio** → `barter_collection_verification.verified = true`, `source = studio_auto`. |
-| **Admin-verified** | Other collections **apply**; admins add to curated list (`admin_curated`). |
-| **Unverified** | All other NFT contracts — **offers allowed**. |
+| **Admin-verified** | Manually curated allowlist → `source = admin_curated` (internal ops). |
+| **Application** | Submit **`POST /api/verify-collection`** or **`/verify-collection`** UI (contract, chain, contact). Queued for review; offers **allowed** while pending (`source = application` when approved). |
+| **Unverified** | All other NFT contracts — **offers allowed** with badge / feed rules below. |
 
 **Unverified offer UX**
 
@@ -311,7 +314,7 @@ Compliance is **in scope from day one**. Primary risk is **fake/impersonating co
 | **ERC-20 currency** | Only **WETH, USDC, allowlist** — never arbitrary unverified ERC-20 as payment or consideration. |
 | **Contract blocklist** | Banned addresses; reject ingest. |
 | **Category policy** | Securities/sanctions/stolen — internal policy; **legal review** before expanding barter types. |
-| **Report / admin** | `barter_reports`; `hidden_by_admin` on offers. |
+| **Report / admin** | `barter_reports`; `hidden_by_admin` on offers. **SLA: review within 24h.** |
 | **Expansion gate** | Legal review before Phase 2+ feature flags. |
 
 ---
@@ -355,10 +358,9 @@ Compliance is **in scope from day one**. Primary risk is **fake/impersonating co
 
 ## 13. Open questions for Max
 
-1. **Verification applications:** Self-serve form (contract + chain proof) vs manual ticket only?
-2. **Followers/collector graph:** Source for “show unverified to my audience” (cryptoart.social API, on-chain holders, or follows table only)?
-3. **Moderation:** SLA and roles for `barter_reports`; when to require on-chain cancel vs admin hide only.
-4. **Legal review checklist:** Sign-off template before Phase 2+ features.
+1. **Followers/collector graph:** Source for “show unverified to my audience” (cryptoart.social API, on-chain holders, or follows table only)?
+2. **Legal review checklist:** Sign-off template before Phase 2+ features.
+3. **Moderation detail:** When to require on-chain cancel vs admin hide only (roles beyond 24h SLA).
 
 ---
 

@@ -7,15 +7,28 @@ import { getMarketplaceChainConfigs, isAuctionHouseEnabled } from '@/lib/chain-c
 import { AuctionCard } from '@/components/auctions/AuctionCard'
 import type { AuctionSummary } from '@/lib/auctions-server'
 import Link from 'next/link'
+import { studioUrl } from '@/lib/studio'
 
-async function loadAuctions(chainId: number): Promise<AuctionSummary[]> {
+type AuctionsLoadResult = {
+  auctions: AuctionSummary[]
+  indexerNotConfigured?: boolean
+  indexerMessage?: string
+}
+
+async function loadAuctions(chainId: number): Promise<AuctionsLoadResult> {
   const res = await fetch(`/api/auctions?chainId=${chainId}&limit=24`)
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || 'Failed to load auctions')
+  const data = await res.json().catch(() => ({}))
+  if (data.indexerStatus === 'not_configured') {
+    return {
+      auctions: [],
+      indexerNotConfigured: true,
+      indexerMessage: data.error || 'Auction indexer not configured',
+    }
   }
-  const data = await res.json()
-  return data.auctions as AuctionSummary[]
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to load auctions')
+  }
+  return { auctions: data.auctions as AuctionSummary[] }
 }
 
 export default function AuctionsPage() {
@@ -57,12 +70,7 @@ export default function AuctionsPage() {
           <p className="mt-2 text-mute text-sm leading-relaxed">
             Live English auctions on the cryptoart marketplace contract — bids settle on-chain.
             List new lots in{' '}
-            <a
-              href="https://cryptoart.studio"
-              className="text-sky-deep hover:underline"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a href={studioUrl()} className="text-sky-deep hover:underline" target="_blank" rel="noreferrer">
               studio
             </a>
             .
@@ -108,7 +116,17 @@ export default function AuctionsPage() {
           </p>
         )}
 
-        {chainHasAuctions && data && data.length === 0 && !isLoading && (
+        {chainHasAuctions && data?.indexerNotConfigured && (
+          <div className="sm-card p-8 text-center max-w-lg mb-8">
+            <p className="sm-heading text-xl">Indexer not configured</p>
+            <p className="mt-2 text-sm text-mute leading-relaxed">
+              {data.indexerMessage ||
+                'Production auction browsing requires DATABASE_URL and the indexer cron (see ENV_VARS.md).'}
+            </p>
+          </div>
+        )}
+
+        {chainHasAuctions && data && !data.indexerNotConfigured && data.auctions.length === 0 && !isLoading && (
           <div className="sm-card p-8 text-center max-w-lg">
             <p className="sm-heading text-xl">No active auctions on {getChainName(chainId)}</p>
             <p className="mt-2 text-sm text-mute">
@@ -124,9 +142,9 @@ export default function AuctionsPage() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {chainHasAuctions &&
-            data?.map((a) => (
-            <AuctionCard key={`${a.chainId}-${a.listingId}`} auction={a} />
-          ))}
+            data?.auctions.map((a) => (
+              <AuctionCard key={`${a.chainId}-${a.listingId}`} auction={a} />
+            ))}
         </div>
       </div>
     </div>

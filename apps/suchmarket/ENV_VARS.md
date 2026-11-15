@@ -11,6 +11,7 @@ Set these in the Vercel project for `apps/suchmarket`. No private keys in the ap
 | `INDEXER_MAX_BLOCKS_PER_RUN` | Max blocks per cron tick (default `250000`) |
 | `INDEXER_LOG_CHUNK` | `eth_getLogs` chunk size (default `50000`) |
 | `NEXT_PUBLIC_IPFS_URL` | IPFS gateway (default `https://ipfs.io`) |
+| `NEXT_PUBLIC_STUDIO_URL` | **Tentative** base URL for studio listing deep links (default `https://cryptoart.studio`) |
 
 ## Trader defaults (optional)
 
@@ -62,6 +63,8 @@ At deploy time (Foundry env on Max's machine only, never committed): set **`PROT
 ## Indexer
 
 **Production (decided):** **Vercel Postgres** for `DATABASE_URL` plus **Vercel cron** (`vercel.json` → `/api/cron/sync-indexer` every 15 minutes with `CRON_SECRET`). No separate indexer host required for launch.
+
+**Auctions:** In `NODE_ENV=production`, `/api/auctions` returns **503 / indexer not configured** without `DATABASE_URL`. Dev/local may use RPC `CreateListing` log scans as a fallback. Fork Foundry tests (`SuchmarketBaseSepoliaFork.t.sol`) are **manual only** — see `docs/ROADMAP.md`.
 
 ### Migrations
 

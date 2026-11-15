@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { studioUrl } from '@/lib/studio'
 
 /**
  * Stub — fixed-price listing creation (owned NFTs only).
@@ -14,10 +15,13 @@ export default function CreateFixedPriceStubPage() {
         minting and metadata stay in cryptoart.studio.
       </p>
       <div className="mt-8 flex flex-wrap gap-3">
+        <a href={studioUrl('/create/fixed-price')} className="sm-btn-primary" target="_blank" rel="noreferrer">
+          Open in studio
+        </a>
         <Link href="/" className="sm-btn-secondary">
           Back home
         </Link>
-        <Link href="/create" className="sm-btn-primary">
+        <Link href="/create" className="sm-btn-secondary">
           Create a pool instead
         </Link>
       </div>

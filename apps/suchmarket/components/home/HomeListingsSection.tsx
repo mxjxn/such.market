@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useAppChain } from '@/contexts/ChainContext'
 import { isAuctionHouseEnabled } from '@/lib/chain-config'
+import { studioUrl } from '@/lib/studio'
 import { SAMPLE_AUCTIONS, type SampleAuction } from '@/lib/homeFixtures'
 import type { AuctionSummary } from '@/lib/auctions-server'
 
@@ -141,19 +142,19 @@ export function HomeListingsSection({ preview }: { preview: boolean }) {
               />
               {auctionsVisible && (
                 <ListingOption
-                  href="/create/auction"
+                  href={studioUrl('/create/auction')}
                   title="Auction"
                   body="Timed English auction for a piece you hold."
-                  cta="Coming soon"
-                  soon
+                  cta="In studio"
+                  external
                 />
               )}
               <ListingOption
-                href="/create/fixed-price"
+                href={studioUrl('/create/fixed-price')}
                 title="Fixed price"
                 body="Set a single ask for one or more tokens."
-                cta="Coming soon"
-                soon
+                cta="In studio"
+                external
               />
             </ul>
           </div>
@@ -170,19 +171,18 @@ function ListingOption({
   body,
   cta,
   soon,
+  external,
 }: {
   href: string
   title: string
   body: string
   cta: string
   soon?: boolean
+  external?: boolean
 }) {
-  return (
-    <li>
-      <Link
-        href={href}
-        className="block rounded-xl border-2 border-line px-4 py-3.5 hover:border-sky hover:bg-sky/5 transition"
-      >
+  const className =
+    'block rounded-xl border-2 border-line px-4 py-3.5 hover:border-sky hover:bg-sky/5 transition'
+  const inner = (
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="sm-heading text-base text-ink">{title}</p>
@@ -196,7 +196,18 @@ function ListingOption({
             {cta}
           </span>
         </div>
-      </Link>
+  )
+  return (
+    <li>
+      {external ? (
+        <a href={href} target="_blank" rel="noreferrer" className={className}>
+          {inner}
+        </a>
+      ) : (
+        <Link href={href} className={className}>
+          {inner}
+        </Link>
+      )}
     </li>
   )
 }
