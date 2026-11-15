@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && pnpm install",
+  "buildCommand": "cd ../.. && pnpm --filter @mxjxn/lssvm-abis build && pnpm --filter @lssvm/suchmarket build",
+  "crons": [
+    {
+      "path": "/api/cron/sync-indexer",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}

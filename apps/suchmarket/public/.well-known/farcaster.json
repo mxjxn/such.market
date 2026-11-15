@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "miniapp": {
+    "version": "1.0.0",
+    "name": "Suchmarket",
+    "homeUrl": "https://suchmarket.example.com",
+    "iconUrl": "https://suchmarket.example.com/icon.png",
+    "splashImageUrl": "https://suchmarket.example.com/splash.png",
+    "splashBackgroundColor": "#07040f",
+    "webhookUrl": "https://suchmarket.example.com/api/webhook"
+  },
+  "accountAssociation": {
+    "type": "farcaster",
+    "account": {
+      "fid": 0
+    },
+    "signature": ""
+  }
+}

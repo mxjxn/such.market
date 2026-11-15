@@ -1,0 +1,10 @@
+# Example .npmrc for publishing @lssvm/abis
+# Copy this to ~/.npmrc or create in the package directory if needed
+
+# If publishing to a private registry, uncomment and configure:
+# registry=https://registry.npmjs.org/
+# @lssvm:registry=https://registry.npmjs.org/
+
+# For scoped packages, ensure you have access:
+# npm access ls-packages
+
