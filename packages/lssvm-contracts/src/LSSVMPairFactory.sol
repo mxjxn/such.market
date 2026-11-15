@@ -144,14 +144,13 @@ contract LSSVMPairFactory is Owned, ILSSVMPairFactoryLike {
         address _propertyChecker,
         uint256[] calldata _initialNFTIDs
     ) external payable returns (LSSVMPairERC721ETH pair) {
-        if (!bondingCurveAllowed[_bondingCurve]) revert LSSVMPairFactory__BondingCurveNotWhitelisted();
+        if (!bondingCurveAllowed[_bondingCurve]) {
+            revert LSSVMPairFactory__BondingCurveNotWhitelisted();
+        }
 
         pair = LSSVMPairERC721ETH(
-            payable(
-                address(erc721ETHTemplate).cloneERC721ETHPair(
-                    this, _bondingCurve, _nft, uint8(_poolType), _propertyChecker
-                )
-            )
+            payable(address(erc721ETHTemplate)
+                    .cloneERC721ETHPair(this, _bondingCurve, _nft, uint8(_poolType), _propertyChecker))
         );
 
         _initializePairERC721ETH(pair, _nft, _assetRecipient, _delta, _fee, _spotPrice, _initialNFTIDs);
@@ -197,11 +196,15 @@ contract LSSVMPairFactory is Owned, ILSSVMPairFactoryLike {
         if (!bondingCurveAllowed[params.bondingCurve]) revert LSSVMPairFactory__BondingCurveNotWhitelisted();
 
         pair = LSSVMPairERC721ERC20(
-            payable(
-                address(erc721ERC20Template).cloneERC721ERC20Pair(
-                    this, params.bondingCurve, params.nft, uint8(params.poolType), params.propertyChecker, params.token
-                )
-            )
+            payable(address(erc721ERC20Template)
+                    .cloneERC721ERC20Pair(
+                        this,
+                        params.bondingCurve,
+                        params.nft,
+                        uint8(params.poolType),
+                        params.propertyChecker,
+                        params.token
+                    ))
         );
 
         _initializePairERC721ERC20(
@@ -243,12 +246,13 @@ contract LSSVMPairFactory is Owned, ILSSVMPairFactoryLike {
         uint256 _nftId,
         uint256 _initialNFTBalance
     ) external payable returns (LSSVMPairERC1155ETH pair) {
-        if (!bondingCurveAllowed[_bondingCurve]) revert LSSVMPairFactory__BondingCurveNotWhitelisted();
+        if (!bondingCurveAllowed[_bondingCurve]) {
+            revert LSSVMPairFactory__BondingCurveNotWhitelisted();
+        }
 
         pair = LSSVMPairERC1155ETH(
-            payable(
-                address(erc1155ETHTemplate).cloneERC1155ETHPair(this, _bondingCurve, _nft, uint8(_poolType), _nftId)
-            )
+            payable(address(erc1155ETHTemplate)
+                    .cloneERC1155ETHPair(this, _bondingCurve, _nft, uint8(_poolType), _nftId))
         );
 
         _initializePairERC1155ETH(pair, _nft, _assetRecipient, _delta, _fee, _spotPrice, _nftId, _initialNFTBalance);
@@ -293,11 +297,10 @@ contract LSSVMPairFactory is Owned, ILSSVMPairFactoryLike {
         if (!bondingCurveAllowed[params.bondingCurve]) revert LSSVMPairFactory__BondingCurveNotWhitelisted();
 
         pair = LSSVMPairERC1155ERC20(
-            payable(
-                address(erc1155ERC20Template).cloneERC1155ERC20Pair(
-                    this, params.bondingCurve, params.nft, uint8(params.poolType), params.nftId, params.token
-                )
-            )
+            payable(address(erc1155ERC20Template)
+                    .cloneERC1155ERC20Pair(
+                        this, params.bondingCurve, params.nft, uint8(params.poolType), params.nftId, params.token
+                    ))
         );
 
         _initializePairERC1155ERC20(

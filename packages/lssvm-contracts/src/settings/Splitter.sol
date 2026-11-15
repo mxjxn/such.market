@@ -32,9 +32,8 @@ contract Splitter is Clone {
         uint256 amtToSendToSettingsFeeRecipient = (parentSettings.getFeeSplitBps() * ethAmount) / BASE;
         parentSettings.settingsFeeRecipient().safeTransferETH(amtToSendToSettingsFeeRecipient);
         uint256 amtToSendToPairFeeRecipient = ethAmount - amtToSendToSettingsFeeRecipient;
-        payable(parentSettings.getPrevFeeRecipientForPair(getPairAddressForSplitter())).safeTransferETH(
-            amtToSendToPairFeeRecipient
-        );
+        payable(parentSettings.getPrevFeeRecipientForPair(getPairAddressForSplitter()))
+        .safeTransferETH(amtToSendToPairFeeRecipient);
     }
 
     function withdrawAllBaseQuoteTokens() public {

@@ -14,14 +14,14 @@ import "../src/ILSSVMPairFactoryLike.sol";
  *      1. Splitter (implementation)
  *      2. StandardSettings (implementation)
  *      3. StandardSettingsFactory
- * 
+ *
  * Settings are an opt-in feature that allows project owners to enforce specific
  * requirements on pools (e.g., lock duration, fee splits) in exchange for
  * reduced royalties or other benefits.
- * 
+ *
  * Required environment variables:
  *      - FACTORY_ADDRESS: Address of the deployed LSSVMPairFactory
- * 
+ *
  * Usage:
  *      forge script script/05_DeploySettings.s.sol:DeploySettings --rpc-url <your_rpc_url> --broadcast --verify
  */
@@ -29,7 +29,7 @@ contract DeploySettings is Script {
     function run() external {
         // Load factory address from environment
         address factoryAddress = vm.envAddress("FACTORY_ADDRESS");
-        
+
         vm.startBroadcast();
 
         // Deploy Splitter implementation
@@ -39,10 +39,7 @@ contract DeploySettings is Script {
 
         // Deploy StandardSettings implementation
         console.log("\nDeploying StandardSettings implementation...");
-        StandardSettings standardSettings = new StandardSettings(
-            splitter,
-            ILSSVMPairFactoryLike(factoryAddress)
-        );
+        StandardSettings standardSettings = new StandardSettings(splitter, ILSSVMPairFactoryLike(factoryAddress));
         console.log("StandardSettings implementation deployed at:", address(standardSettings));
 
         // Deploy StandardSettingsFactory
@@ -58,7 +55,7 @@ contract DeploySettings is Script {
         console.log("StandardSettings:", address(standardSettings));
         console.log("StandardSettingsFactory:", address(settingsFactory));
         console.log("Factory:", factoryAddress);
-        
+
         console.log("\n=== Usage ===");
         console.log("To create a StandardSettings instance, call:");
         console.log("  settingsFactory.createSettings(");

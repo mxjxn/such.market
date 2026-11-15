@@ -12,7 +12,7 @@ import "../src/mocks/TestNFT1155.sol";
  *         - TestNFT1155: ERC1155 with:
  *           - Item 0: 10 copies
  *           - Item 1: 1000 copies
- * 
+ *
  * Usage:
  *      forge script script/DeployTestNFTs.s.sol:DeployTestNFTs --rpc-url $RPC_URL --broadcast
  */

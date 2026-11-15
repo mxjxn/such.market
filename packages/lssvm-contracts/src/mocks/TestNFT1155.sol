@@ -16,11 +16,11 @@ contract TestNFT1155 is ERC1155, Ownable {
     uint256 public constant ITEM_0_SUPPLY = 10;
     uint256 public constant ITEM_1_ID = 1;
     uint256 public constant ITEM_1_SUPPLY = 1000;
-    
+
     constructor() ERC1155("Test NFT 1155") Ownable(msg.sender) {
         // Mint item 0: 10 copies to deployer
         _mint(msg.sender, ITEM_0_ID, ITEM_0_SUPPLY, "");
-        
+
         // Mint item 1: 1000 copies to deployer
         _mint(msg.sender, ITEM_1_ID, ITEM_1_SUPPLY, "");
     }
@@ -41,11 +41,7 @@ contract TestNFT1155 is ERC1155, Ownable {
      * @param ids Array of item IDs to mint
      * @param amounts Array of amounts to mint for each item
      */
-    function batchMint(
-        address to,
-        uint256[] calldata ids,
-        uint256[] calldata amounts
-    ) public onlyOwner {
+    function batchMint(address to, uint256[] calldata ids, uint256[] calldata amounts) public onlyOwner {
         require(ids.length == amounts.length, "Arrays length mismatch");
         _mintBatch(to, ids, amounts, "");
     }

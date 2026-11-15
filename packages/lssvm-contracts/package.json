@@ -6,9 +6,10 @@
   "scripts": {
     "test": "forge test --match-path 'test/**'",
     "test:full": "forge test",
+    "test:bonding-curves": "forge test --match-path 'src/test/bonding-curve-tests/*.t.sol' --no-match-path '**/huff-curve-tests/**'",
     "build": "forge build",
     "coverage": "forge coverage --report lcov",
-    "lint": "forge fmt --check"
+    "lint": "forge fmt --check src/bonding-curves src/LSSVMPair.sol src/LSSVMPairFactory.sol src/LSSVMRouter.sol src/VeryFastRouter.sol src/ILSSVMPair.sol src/LSSVMPairERC20.sol src/ZeroExRouter.sol src/RBF.sol src/RoyaltyEngine.sol src/erc721 src/erc1155 src/lib src/settings src/mocks test script"
   },
   "keywords": ["solidity", "nft", "amm", "liquidity"],
   "author": "",

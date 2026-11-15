@@ -145,9 +145,8 @@ contract ExponentialCurve is ICurve, CurveErrorCodes {
         // If the user sells n items, then the total revenue is equal to:
         // spotPrice + ((1 / delta) * spotPrice) + ((1 / delta)^2 * spotPrice) + ... ((1 / delta)^(numItems - 1) * spotPrice)
         // This is equal to spotPrice * (1 - (1 / delta^n)) / (1 - (1 / delta))
-        outputValue = uint256(spotPrice).mulWadDown(
-            (FixedPointMathLib.WAD - invDeltaPowN).divWadDown(FixedPointMathLib.WAD - invDelta)
-        );
+        outputValue = uint256(spotPrice)
+            .mulWadDown((FixedPointMathLib.WAD - invDeltaPowN).divWadDown(FixedPointMathLib.WAD - invDelta));
 
         // Account for the protocol fee, a flat percentage of the sell amount
         protocolFee = outputValue.mulWadUp(protocolFeeMultiplier);

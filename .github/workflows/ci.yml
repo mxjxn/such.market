@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_PUBLIC_BASE_RPC_URL: https://sepolia.base.org
+  NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL: https://sepolia.base.org
+  NEXT_PUBLIC_IPFS_URL: https://ipfs.io
+  NEXT_PUBLIC_ROUTER_ADDRESS_8453: "0x0000000000000000000000000000000000000000"
+  NEXT_PUBLIC_FACTORY_ADDRESS_8453: "0x0000000000000000000000000000000000000000"
+  NEXT_PUBLIC_ROUTER_ADDRESS_84532: "0x0000000000000000000000000000000000000000"
+  NEXT_PUBLIC_FACTORY_ADDRESS_84532: "0x0000000000000000000000000000000000000000"
+
+jobs:
+  ci:
+    name: Monorepo CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Python deps (GDA curve FFI tests)
+        run: pip3 install eth-abi
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Check types
+        run: pnpm run check-types
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Vitest (apps/suchmarket)
+        run: pnpm --filter @lssvm/suchmarket test
+
+      - name: Foundry bonding-curve tests
+        working-directory: packages/lssvm-contracts
+        run: pnpm run test:bonding-curves

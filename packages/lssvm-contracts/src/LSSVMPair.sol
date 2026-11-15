@@ -27,7 +27,6 @@ abstract contract LSSVMPair is OwnableWithTransferCallback, ERC721Holder, ERC115
     /**
      * Library usage **
      */
-
     using Address for address;
 
     /**
@@ -266,8 +265,8 @@ abstract contract LSSVMPair is OwnableWithTransferCallback, ERC721Holder, ERC115
             uint256 royaltyAmount
         )
     {
-        (error, newSpotPrice, newDelta, outputAmount, /* tradeFee */, protocolFee) =
-            bondingCurve().getSellInfo(spotPrice, delta, numNFTs, fee, factory().protocolFeeMultiplier());
+        (error, newSpotPrice, newDelta, outputAmount,/* tradeFee */, protocolFee) = bondingCurve()
+            .getSellInfo(spotPrice, delta, numNFTs, fee, factory().protocolFeeMultiplier());
 
         if (numNFTs != 0) {
             // Compute royalties
@@ -423,7 +422,7 @@ abstract contract LSSVMPair is OwnableWithTransferCallback, ERC721Holder, ERC115
         uint128 currentDelta = delta;
         uint128 newSpotPrice;
         uint128 newDelta;
-        (error, newSpotPrice, newDelta, outputAmount, /*tradeFee*/, protocolFee) =
+        (error, newSpotPrice, newDelta, outputAmount,/*tradeFee*/, protocolFee) =
             _bondingCurve.getSellInfo(currentSpotPrice, currentDelta, numNFTs, fee, _factory.protocolFeeMultiplier());
 
         // Revert if bonding curve had an error

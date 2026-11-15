@@ -96,6 +96,24 @@ Agents do **not** run broadcast or touch `.env*` files.
 | Indexer hosting runbook (Neon/Railway/etc.) | **Max** |
 | QA on live Sepolia pools + TestNFT contracts | Agent + Max |
 
+## Monorepo split (post-relaunch)
+
+The legacy **cryptoart-studio** monorepo still bundles **studio** (creator/auction tools) and **cryptoart.social** (feed/embed surfaces). Post-relaunch, split them into separate repositories without breaking shared LSSVM/market packages.
+
+| Step | Owner | Notes |
+| --- | --- | --- |
+| Extract shared npm packages (`@mxjxn/lssvm-abis`, any future shared UI/utils) | Agent + **Max** | Publish or vendor from one canonical repo first |
+| `git subtree` / `git filter-repo` split: `studio` app + its-only docs | **Max** | Keep AGPL license and deployment history where possible |
+| `git subtree` / `git filter-repo` split: `cryptoart.social` app + embed docs | **Max** | Point embeds at production `such.market` URLs |
+| Retire or archive the combined monorepo | **Max** | README redirects to the three products |
+
+**Repo roles after such.market import:**
+
+- **`mxjxn/such-lssvm`** — generic, unbranded LSSVM reference (contracts toolbelt, deploy scripts, upstream-oriented docs). No such.market branding or production deployment addresses as source of truth.
+- **`mxjxn/such.market`** (this repo) — branded **such.market** product: `apps/suchmarket`, branded deployments, operator runbooks (`ROADMAP.md`, `ENV_VARS.md`), and marketplace-specific Foundry smoke tests.
+
+Studio and cryptoart.social stay separate git homes once split; they depend on published/shared packages rather than a single turbo root.
+
 ## Barter offers (post-launch)
 
 Peer **bundle-for-bundle** trading on **Seaport 1.6** (nav: **Barter**). Post–Sepolia/mainnet LSSVM + auction polish. Design: **[BARTER_OFFERS.md](./BARTER_OFFERS.md)** (gradual rollout; Phase 1 NFT/token bundles; compliance & anti-spam).

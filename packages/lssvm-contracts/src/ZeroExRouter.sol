@@ -81,7 +81,7 @@ contract ZeroExRouter {
 
     error InsufficientETH();
 
-    function onERC721Received(address , address from, uint256 id, bytes memory data) public returns (bytes4) {
+    function onERC721Received(address, address from, uint256 id, bytes memory data) public returns (bytes4) {
         (
             address pairAddress,
             uint256 minTokenOutput,
@@ -127,7 +127,7 @@ contract ZeroExRouter {
         return this.onERC721Received.selector;
     }
 
-    function onERC1155Received(address , address from, uint256 , uint256 amount, bytes memory data)
+    function onERC1155Received(address, address from, uint256, uint256 amount, bytes memory data)
         public
         returns (bytes4)
     {
@@ -146,9 +146,8 @@ contract ZeroExRouter {
         // Swap the pair for tokens
         uint256[] memory swapInfo = new uint256[](1);
         swapInfo[0] = amount;
-        uint256 outputAmount = ILSSVMPair(pairAddress).swapNFTsForToken(
-            swapInfo, minTokenOutput, payable(address(this)), false, address(0)
-        );
+        uint256 outputAmount = ILSSVMPair(pairAddress)
+            .swapNFTsForToken(swapInfo, minTokenOutput, payable(address(this)), false, address(0));
         require(outputAmount >= minTokenOutput, ":(");
 
         // Approve the tokens for the 0x target

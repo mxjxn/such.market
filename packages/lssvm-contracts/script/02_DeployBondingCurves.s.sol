@@ -15,11 +15,11 @@ import "../src/bonding-curves/GDACurve.sol";
  *      2. ExponentialCurve
  *      3. XykCurve (x*y=k curve)
  *      4. GDACurve (Gradual Dutch Auction curve)
- * 
+ *
  * These curves are standalone contracts with no dependencies.
  * After deployment, they must be whitelisted in the LSSVMPairFactory
  * by calling setBondingCurveAllowed(curve, true) for each curve.
- * 
+ *
  * Usage:
  *      forge script script/02_DeployBondingCurves.s.sol:DeployBondingCurves --rpc-url <your_rpc_url> --broadcast --verify
  */
@@ -29,16 +29,16 @@ contract DeployBondingCurves is Script {
 
         // Deploy all bonding curves
         console.log("Deploying Bonding Curves...");
-        
+
         LinearCurve linearCurve = new LinearCurve();
         console.log("LinearCurve deployed at:", address(linearCurve));
-        
+
         ExponentialCurve exponentialCurve = new ExponentialCurve();
         console.log("ExponentialCurve deployed at:", address(exponentialCurve));
-        
+
         XykCurve xykCurve = new XykCurve();
         console.log("XykCurve deployed at:", address(xykCurve));
-        
+
         GDACurve gdaCurve = new GDACurve();
         console.log("GDACurve deployed at:", address(gdaCurve));
 
@@ -50,7 +50,7 @@ contract DeployBondingCurves is Script {
         console.log("ExponentialCurve:", address(exponentialCurve));
         console.log("XykCurve:", address(xykCurve));
         console.log("GDACurve:", address(gdaCurve));
-        
+
         console.log("\n=== Post-Deployment Steps ===");
         console.log("1. Whitelist curves in LSSVMPairFactory by calling:");
         console.log("   factory.setBondingCurveAllowed(address(linearCurve), true)");

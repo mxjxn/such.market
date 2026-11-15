@@ -238,13 +238,11 @@ contract StandardSettings is IOwnershipTransferReceiver, OwnableWithTransferCall
         // Get new price to buy from pair
         uint256 newPriceToBuyFromPair;
         (
-            error,
-            ,
-            ,
+            error,,,
             /* error */
             /* new spot price */
             /* new delta */
-            newPriceToBuyFromPair, /* trade fee */ /* protocol fee */
+            newPriceToBuyFromPair,/* trade fee */ /* protocol fee */
             ,
         ) = pair.bondingCurve().getBuyInfo(newSpotPrice, newDelta, 1, pair.fee(), pairFactory.protocolFeeMultiplier());
         if (error != CurveErrorCodes.Error.OK) {
@@ -275,13 +273,11 @@ contract StandardSettings is IOwnershipTransferReceiver, OwnableWithTransferCall
         // Get new price to sell to pair
         uint256 newPriceToSellToPair;
         (
-            error,
-            ,
-            ,
+            error,,,
             /* error */
             /* new spot price */
             /* new delta */
-            newPriceToSellToPair, /* trade fee */ /* protocol fee */
+            newPriceToSellToPair,/* trade fee */ /* protocol fee */
             ,
         ) = pair.bondingCurve().getSellInfo(newSpotPrice, newDelta, 1, pair.fee(), pairFactory.protocolFeeMultiplier());
         if (error != CurveErrorCodes.Error.OK) {

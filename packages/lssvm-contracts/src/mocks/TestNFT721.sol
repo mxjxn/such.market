@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  */
 contract TestNFT721 is ERC721, Ownable {
     uint256 public constant TOTAL_SUPPLY = 100;
-    
+
     constructor() ERC721("Test NFT 721", "TN721") Ownable(msg.sender) {
         // Mint all 100 tokens to the deployer
         for (uint256 i = 0; i < TOTAL_SUPPLY; i++) {

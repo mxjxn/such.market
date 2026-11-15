@@ -211,9 +211,8 @@ contract LSSVMRouter {
         uint256 numSwaps = swapList.length;
         for (uint256 i; i < numSwaps;) {
             // Calculate actual cost per swap
-            (error,,, pairCost,,) = swapList[i].swapInfo.pair.getBuyNFTQuote(
-                swapList[i].swapInfo.nftIds[0], swapList[i].swapInfo.nftIds.length
-            );
+            (error,,, pairCost,,) = swapList[i].swapInfo.pair
+                .getBuyNFTQuote(swapList[i].swapInfo.nftIds[0], swapList[i].swapInfo.nftIds.length);
 
             // If within our maxCost and no error, proceed
             if (pairCost <= swapList[i].maxCost && error == CurveErrorCodes.Error.OK) {
@@ -257,15 +256,13 @@ contract LSSVMRouter {
         uint256 numSwaps = swapList.length;
         for (uint256 i; i < numSwaps;) {
             // Calculate actual cost per swap
-            (error,,, pairCost,,) = swapList[i].swapInfo.pair.getBuyNFTQuote(
-                swapList[i].swapInfo.nftIds[0], swapList[i].swapInfo.nftIds.length
-            );
+            (error,,, pairCost,,) = swapList[i].swapInfo.pair
+                .getBuyNFTQuote(swapList[i].swapInfo.nftIds[0], swapList[i].swapInfo.nftIds.length);
 
             // If within our maxCost and no error, proceed
             if (pairCost <= swapList[i].maxCost && error == CurveErrorCodes.Error.OK) {
-                remainingValue -= swapList[i].swapInfo.pair.swapTokenForSpecificNFTs(
-                    swapList[i].swapInfo.nftIds, pairCost, nftRecipient, true, msg.sender
-                );
+                remainingValue -= swapList[i].swapInfo.pair
+                    .swapTokenForSpecificNFTs(swapList[i].swapInfo.nftIds, pairCost, nftRecipient, true, msg.sender);
             }
 
             unchecked {
@@ -313,9 +310,8 @@ contract LSSVMRouter {
             // If at least equal to our minOutput, proceed
             if (pairOutput >= swapList[i].minOutput) {
                 // Do the swap and update outputAmount with how many tokens we got
-                outputAmount += swapList[i].swapInfo.pair.swapNFTsForToken(
-                    swapList[i].swapInfo.nftIds, 0, tokenRecipient, true, msg.sender
-                );
+                outputAmount += swapList[i].swapInfo.pair
+                    .swapNFTsForToken(swapList[i].swapInfo.nftIds, 0, tokenRecipient, true, msg.sender);
             }
 
             unchecked {
@@ -349,15 +345,17 @@ contract LSSVMRouter {
             uint256 numSwaps = params.tokenToNFTTrades.length;
             for (uint256 i; i < numSwaps;) {
                 // Calculate actual cost per swap
-                (error,,, pairCost,,) = params.tokenToNFTTrades[i].swapInfo.pair.getBuyNFTQuote(
-                    params.tokenToNFTTrades[i].swapInfo.nftIds[0], params.tokenToNFTTrades[i].swapInfo.nftIds.length
-                );
+                (error,,, pairCost,,) = params.tokenToNFTTrades[i].swapInfo.pair
+                    .getBuyNFTQuote(
+                        params.tokenToNFTTrades[i].swapInfo.nftIds[0], params.tokenToNFTTrades[i].swapInfo.nftIds.length
+                    );
 
                 // If within our maxCost and no error, proceed
                 if (pairCost <= params.tokenToNFTTrades[i].maxCost && error == CurveErrorCodes.Error.OK) {
                     // We know how much ETH to send because we already did the math above
                     // So we just send that much
-                    remainingValue -= params.tokenToNFTTrades[i].swapInfo.pair.swapTokenForSpecificNFTs{value: pairCost}(
+                    remainingValue -= params.tokenToNFTTrades[i].swapInfo.pair
+                    .swapTokenForSpecificNFTs{value: pairCost}(
                         params.tokenToNFTTrades[i].swapInfo.nftIds, pairCost, params.nftRecipient, true, msg.sender
                     );
                 }
@@ -382,9 +380,8 @@ contract LSSVMRouter {
                 {
                     CurveErrorCodes.Error error;
                     uint256 assetId = params.nftToTokenTrades[i].swapInfo.nftIds[0];
-                    (error,,, pairOutput,,) = params.nftToTokenTrades[i].swapInfo.pair.getSellNFTQuote(
-                        assetId, params.nftToTokenTrades[i].swapInfo.nftIds.length
-                    );
+                    (error,,, pairOutput,,) = params.nftToTokenTrades[i].swapInfo.pair
+                        .getSellNFTQuote(assetId, params.nftToTokenTrades[i].swapInfo.nftIds.length);
                     if (error != CurveErrorCodes.Error.OK) {
                         unchecked {
                             ++i;
@@ -396,9 +393,10 @@ contract LSSVMRouter {
                 // If at least equal to our minOutput, proceed
                 if (pairOutput >= params.nftToTokenTrades[i].minOutput) {
                     // Do the swap and update outputAmount with how many tokens we got
-                    outputAmount += params.nftToTokenTrades[i].swapInfo.pair.swapNFTsForToken(
-                        params.nftToTokenTrades[i].swapInfo.nftIds, 0, params.tokenRecipient, true, msg.sender
-                    );
+                    outputAmount += params.nftToTokenTrades[i].swapInfo.pair
+                        .swapNFTsForToken(
+                            params.nftToTokenTrades[i].swapInfo.nftIds, 0, params.tokenRecipient, true, msg.sender
+                        );
                 }
 
                 unchecked {
@@ -432,15 +430,17 @@ contract LSSVMRouter {
             uint256 numSwaps = params.tokenToNFTTrades.length;
             for (uint256 i; i < numSwaps;) {
                 // Calculate actual cost per swap
-                (error,,, pairCost,,) = params.tokenToNFTTrades[i].swapInfo.pair.getBuyNFTQuote(
-                    params.tokenToNFTTrades[i].swapInfo.nftIds[0], params.tokenToNFTTrades[i].swapInfo.nftIds.length
-                );
+                (error,,, pairCost,,) = params.tokenToNFTTrades[i].swapInfo.pair
+                    .getBuyNFTQuote(
+                        params.tokenToNFTTrades[i].swapInfo.nftIds[0], params.tokenToNFTTrades[i].swapInfo.nftIds.length
+                    );
 
                 // If within our maxCost and no error, proceed
                 if (pairCost <= params.tokenToNFTTrades[i].maxCost && error == CurveErrorCodes.Error.OK) {
-                    remainingValue -= params.tokenToNFTTrades[i].swapInfo.pair.swapTokenForSpecificNFTs(
-                        params.tokenToNFTTrades[i].swapInfo.nftIds, pairCost, params.nftRecipient, true, msg.sender
-                    );
+                    remainingValue -= params.tokenToNFTTrades[i].swapInfo.pair
+                        .swapTokenForSpecificNFTs(
+                            params.tokenToNFTTrades[i].swapInfo.nftIds, pairCost, params.nftRecipient, true, msg.sender
+                        );
                 }
 
                 unchecked {
@@ -458,9 +458,8 @@ contract LSSVMRouter {
                 {
                     CurveErrorCodes.Error error;
                     uint256 assetId = params.nftToTokenTrades[i].swapInfo.nftIds[0];
-                    (error,,, pairOutput,,) = params.nftToTokenTrades[i].swapInfo.pair.getSellNFTQuote(
-                        assetId, params.nftToTokenTrades[i].swapInfo.nftIds.length
-                    );
+                    (error,,, pairOutput,,) = params.nftToTokenTrades[i].swapInfo.pair
+                        .getSellNFTQuote(assetId, params.nftToTokenTrades[i].swapInfo.nftIds.length);
                     if (error != CurveErrorCodes.Error.OK) {
                         unchecked {
                             ++i;
@@ -472,9 +471,10 @@ contract LSSVMRouter {
                 // If at least equal to our minOutput, proceed
                 if (pairOutput >= params.nftToTokenTrades[i].minOutput) {
                     // Do the swap and update outputAmount with how many tokens we got
-                    outputAmount += params.nftToTokenTrades[i].swapInfo.pair.swapNFTsForToken(
-                        params.nftToTokenTrades[i].swapInfo.nftIds, 0, params.tokenRecipient, true, msg.sender
-                    );
+                    outputAmount += params.nftToTokenTrades[i].swapInfo.pair
+                        .swapNFTsForToken(
+                            params.nftToTokenTrades[i].swapInfo.nftIds, 0, params.tokenRecipient, true, msg.sender
+                        );
                 }
 
                 unchecked {
@@ -617,9 +617,8 @@ contract LSSVMRouter {
             // Tokens are transferred in by the pair calling router.pairTransferERC20From
             // Total tokens taken from sender cannot exceed inputAmount
             // because otherwise the deduction from remainingValue will fail
-            remainingValue -= swapList[i].pair.swapTokenForSpecificNFTs(
-                swapList[i].nftIds, remainingValue, nftRecipient, true, msg.sender
-            );
+            remainingValue -= swapList[i].pair
+                .swapTokenForSpecificNFTs(swapList[i].nftIds, remainingValue, nftRecipient, true, msg.sender);
 
             unchecked {
                 ++i;

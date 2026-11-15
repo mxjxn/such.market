@@ -18,7 +18,14 @@ contract XykCurve is ICurve, CurveErrorCodes {
     /**
      * @dev See {ICurve-validateDelta}
      */
-    function validateDelta(uint128 /*delta*/ ) external pure override returns (bool) {
+    function validateDelta(
+        uint128 /*delta*/
+    )
+        external
+        pure
+        override
+        returns (bool)
+    {
         // all values are valid
         return true;
     }
@@ -26,7 +33,14 @@ contract XykCurve is ICurve, CurveErrorCodes {
     /**
      * @dev See {ICurve-validateSpotPrice}
      */
-    function validateSpotPrice(uint128 /*newSpotPrice*/ ) external pure override returns (bool) {
+    function validateSpotPrice(
+        uint128 /*newSpotPrice*/
+    )
+        external
+        pure
+        override
+        returns (bool)
+    {
         // all values are valid
         return true;
     }
