@@ -1,0 +1,16 @@
+{
+  "name": "@lssvm/contracts",
+  "version": "0.1.0",
+  "description": "LSSVM (sudoAMM v2) Solidity contracts",
+  "private": true,
+  "scripts": {
+    "test": "forge test",
+    "build": "forge build",
+    "coverage": "forge coverage --report lcov",
+    "lint": "forge fmt --check"
+  },
+  "keywords": ["solidity", "nft", "amm", "liquidity"],
+  "author": "",
+  "license": "AGPL-3.0"
+}
+

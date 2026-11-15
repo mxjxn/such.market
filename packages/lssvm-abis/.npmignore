@@ -1,0 +1,25 @@
+# Source files (only dist is needed in published package)
+src/
+tsconfig.json
+*.tsbuildinfo
+
+# Development files
+node_modules/
+.git/
+.gitignore
+
+# Build artifacts
+*.tgz
+dist/*.map
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test files
+test/
+*.test.ts
+*.spec.ts
+
