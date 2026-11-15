@@ -4,7 +4,8 @@
   "description": "LSSVM (sudoAMM v2) Solidity contracts",
   "private": true,
   "scripts": {
-    "test": "forge test",
+    "test": "forge test --match-path 'test/**'",
+    "test:full": "forge test",
     "build": "forge build",
     "coverage": "forge coverage --report lcov",
     "lint": "forge fmt --check"
