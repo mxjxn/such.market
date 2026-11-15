@@ -1,6 +1,23 @@
 # such.market roadmap
 
-Marketplace-only surface (pools + auctions). Artist/studio flows stay in cryptoart.studio.
+Marketplace surface: **LSSVM pools**, **auctions**, and **fixed-price** listings on the shared marketplace contract. Minting and collection launches stay in **cryptoart.studio**.
+
+## Day-one launch scope (Max)
+
+| In scope at launch | Out of scope (post-launch) |
+| --- | --- |
+| **LSSVM pools** (such.market) | **Barter** / Seaport bundle trading — see [BARTER_OFFERS.md](./BARTER_OFFERS.md) |
+| **Auctions** + **fixed-price** listings on the **already-deployed auction house / marketplace contract** | such.market as the primary marketing entry point |
+| **Browse / trade / pool** UX in such.market + embeds | Full barter order book, conduit, compliance phases |
+
+**Go-to-market:** Launch is led by **cryptoart.studio** and **cryptoart.social**. **such.market** stays **low-profile** behind those tools at first (embeds, deep links, power-user surface — not the main public front door).
+
+**Listing flows (two surfaces, one contract):**
+
+1. **Studio (cryptoart-studio repo)** — creators list **directly onto the marketplace contract** from studio workflows (mints, launches) **without visiting such.market**. Document the dependency here only; implementation is not in this repo.
+2. **such.market Sell (`/sell`)** — any holder can list **auction** or **fixed-price** on the **same marketplace contract**. Stub at `/sell` today; full wallet → NFT picker → `createListing` UX is a **roadmap item for this repo** (below).
+
+**Create listing CTAs** in the app point at **`/sell`** (not studio deep-links). **Create pool** remains **`/create`**.
 
 ## Done (this branch / PR #4)
 
@@ -89,6 +106,14 @@ Agents do **not** run broadcast or touch `.env*` files.
 5. **Do not**
    - [ ] Point production at sudoswap canonical factory `0xA020…` / router `0x090C…`
    - [ ] Commit private keys or `.env.local`
+
+## Remaining — such.market Sell flow
+
+| Step | Owner |
+| --- | --- |
+| **`/sell` UX** — auction + fixed-price on marketplace contract (same ABI as studio; any owned NFT) | Agent |
+| Wire to marketplace `createListing` + validation (chain, royalties hints) | Agent |
+| Link from home “Create listing” and legacy `/create/auction`, `/create/fixed-price` | **Done** (stub + redirects) |
 
 ## Remaining — Sepolia beta
 

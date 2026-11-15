@@ -11,7 +11,6 @@ Set these in the Vercel project for `apps/suchmarket`. No private keys in the ap
 | `INDEXER_MAX_BLOCKS_PER_RUN` | Max blocks per cron tick (default `250000`) |
 | `INDEXER_LOG_CHUNK` | `eth_getLogs` chunk size (default `50000`) |
 | `NEXT_PUBLIC_IPFS_URL` | IPFS gateway (default `https://ipfs.io`) |
-| `NEXT_PUBLIC_STUDIO_URL` | **Tentative** base URL for studio listing deep links (default `https://cryptoart.studio`) |
 
 ## Trader defaults (optional)
 

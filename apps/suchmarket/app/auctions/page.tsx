@@ -7,7 +7,6 @@ import { getMarketplaceChainConfigs, isAuctionHouseEnabled } from '@/lib/chain-c
 import { AuctionCard } from '@/components/auctions/AuctionCard'
 import type { AuctionSummary } from '@/lib/auctions-server'
 import Link from 'next/link'
-import { studioUrl } from '@/lib/studio'
 
 type AuctionsLoadResult = {
   auctions: AuctionSummary[]
@@ -69,11 +68,8 @@ export default function AuctionsPage() {
           <h1 className="sm-heading text-3xl md:text-4xl">Auctions</h1>
           <p className="mt-2 text-mute text-sm leading-relaxed">
             Live English auctions on the cryptoart marketplace contract — bids settle on-chain.
-            List new lots in{' '}
-            <a href={studioUrl()} className="text-sky-deep hover:underline" target="_blank" rel="noreferrer">
-              studio
-            </a>
-            .
+            List NFTs you own via <Link href="/sell" className="text-sky-deep hover:underline">Sell</Link> (or
+            cryptoart.studio for creator launches).
           </p>
         </header>
 

@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useAppChain } from '@/contexts/ChainContext'
 import { isAuctionHouseEnabled } from '@/lib/chain-config'
-import { studioUrl } from '@/lib/studio'
 import { SAMPLE_AUCTIONS, type SampleAuction } from '@/lib/homeFixtures'
 import type { AuctionSummary } from '@/lib/auctions-server'
 
@@ -142,19 +141,17 @@ export function HomeListingsSection({ preview }: { preview: boolean }) {
               />
               {auctionsVisible && (
                 <ListingOption
-                  href={studioUrl('/create/auction')}
+                  href="/sell"
                   title="Auction"
                   body="Timed English auction for a piece you hold."
-                  cta="In studio"
-                  external
+                  cta="Sell"
                 />
               )}
               <ListingOption
-                href={studioUrl('/create/fixed-price')}
+                href="/sell"
                 title="Fixed price"
                 body="Set a single ask for one or more tokens."
-                cta="In studio"
-                external
+                cta="Sell"
               />
             </ul>
           </div>
@@ -171,18 +168,19 @@ function ListingOption({
   body,
   cta,
   soon,
-  external,
 }: {
   href: string
   title: string
   body: string
   cta: string
   soon?: boolean
-  external?: boolean
 }) {
-  const className =
-    'block rounded-xl border-2 border-line px-4 py-3.5 hover:border-sky hover:bg-sky/5 transition'
-  const inner = (
+  return (
+    <li>
+      <Link
+        href={href}
+        className="block rounded-xl border-2 border-line px-4 py-3.5 hover:border-sky hover:bg-sky/5 transition"
+      >
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="sm-heading text-base text-ink">{title}</p>
@@ -196,18 +194,7 @@ function ListingOption({
             {cta}
           </span>
         </div>
-  )
-  return (
-    <li>
-      {external ? (
-        <a href={href} target="_blank" rel="noreferrer" className={className}>
-          {inner}
-        </a>
-      ) : (
-        <Link href={href} className={className}>
-          {inner}
-        </Link>
-      )}
+      </Link>
     </li>
   )
 }

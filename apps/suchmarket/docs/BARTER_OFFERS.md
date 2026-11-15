@@ -30,7 +30,7 @@ Orders are **EIP-712 signed** and fulfilled on-chain via Seaport; such.market ho
 | 10 | **Nav label:** **Barter** (not “Trade” / not “Barter offers” in the tab). |
 | 11 | **NFT verification:** **Studio mints → auto-verified** (`studio_auto`). **Manually curated** allowlist (`admin_curated`). **Everyone else** may still offer (unverified badge); apply via **`/verify-collection`** stub form → queued for admin review (`application`). Default feeds hide unverified except profile/followers + toggle. **No refundable deposit.** |
 | 12 | **Moderation SLA:** Flagged barter offers (`barter_reports`) **reviewed within 24 hours** (admin hide/delist; on-chain cancel when policy requires). |
-| 13 | **Create listing (tentative):** Non-pool listing types (auction, fixed price) **deep-link to studio** via `NEXT_PUBLIC_STUDIO_URL` (default `https://cryptoart.studio` until Max confirms). such.market keeps pool creation only. |
+| 13 | **Launch scope:** **Barter is post-launch.** Day one is pools + marketplace auctions/fixed-price (see [ROADMAP.md](./ROADMAP.md) §Day-one launch scope). Listing UX: studio (cryptoart-studio repo) + such.market **`/sell`** on the same contract — not barter. |
 
 ---
 
@@ -55,7 +55,7 @@ Downstream sections describe the **full target**; implementation tracks the tabl
 | **Auctions** | cryptoart.studio marketplace contract | Timed listings, bids, settlement to seller. |
 | **Barter** | Seaport 1.6 | Peer barter offers: “I give bundle A for bundle B”. |
 
-**Nav:** `Explore` · `Pools` · `Auctions` · **Barter** · `Create` (thin; studio deep-links where needed).
+**Nav at barter launch:** `Explore` · `Pools` · `Auctions` · **Barter** · `Create` pool · **`/sell`** for listings. **Barter nav ships post–day-one launch** (Seaport).
 
 **Flows:**
 
