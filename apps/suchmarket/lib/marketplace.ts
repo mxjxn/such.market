@@ -103,6 +103,63 @@ export const MARKETPLACE_ABI = [
     stateMutability: 'payable',
   },
   {
+    type: 'function',
+    name: 'createListing',
+    inputs: [
+      {
+        name: 'listingDetails',
+        type: 'tuple',
+        internalType: 'struct MarketplaceLib.ListingDetails',
+        components: [
+          { name: 'initialAmount', type: 'uint256', internalType: 'uint256' },
+          { name: 'type_', type: 'uint8', internalType: 'enum MarketplaceLib.ListingType' },
+          { name: 'totalAvailable', type: 'uint24', internalType: 'uint24' },
+          { name: 'totalPerSale', type: 'uint24', internalType: 'uint24' },
+          { name: 'extensionInterval', type: 'uint16', internalType: 'uint16' },
+          { name: 'minIncrementBPS', type: 'uint16', internalType: 'uint16' },
+          { name: 'erc20', type: 'address', internalType: 'address' },
+          { name: 'identityVerifier', type: 'address', internalType: 'address' },
+          { name: 'startTime', type: 'uint48', internalType: 'uint48' },
+          { name: 'endTime', type: 'uint48', internalType: 'uint48' },
+        ],
+      },
+      {
+        name: 'tokenDetails',
+        type: 'tuple',
+        internalType: 'struct MarketplaceLib.TokenDetails',
+        components: [
+          { name: 'id', type: 'uint256', internalType: 'uint256' },
+          { name: 'address_', type: 'address', internalType: 'address' },
+          { name: 'spec', type: 'uint8', internalType: 'enum TokenLib.Spec' },
+          { name: 'lazy', type: 'bool', internalType: 'bool' },
+        ],
+      },
+      {
+        name: 'deliveryFees',
+        type: 'tuple',
+        internalType: 'struct MarketplaceLib.DeliveryFees',
+        components: [
+          { name: 'deliverBPS', type: 'uint16', internalType: 'uint16' },
+          { name: 'deliverFixed', type: 'uint240', internalType: 'uint240' },
+        ],
+      },
+      {
+        name: 'listingReceivers',
+        type: 'tuple[]',
+        internalType: 'struct MarketplaceLib.ListingReceiver[]',
+        components: [
+          { name: 'receiver', type: 'address', internalType: 'address payable' },
+          { name: 'receiverBPS', type: 'uint16', internalType: 'uint16' },
+        ],
+      },
+      { name: 'enableReferrer', type: 'bool', internalType: 'bool' },
+      { name: 'acceptOffers', type: 'bool', internalType: 'bool' },
+      { name: 'data', type: 'bytes', internalType: 'bytes' },
+    ],
+    outputs: [{ name: '', type: 'uint40', internalType: 'uint40' }],
+    stateMutability: 'nonpayable',
+  },
+  {
     type: 'event',
     name: 'CreateListing',
     inputs: [
@@ -180,6 +237,10 @@ export function getMarketplaceAddress(chainId: number): Address {
 
 export function isAuctionListing(listing: ContractListing): boolean {
   return listing.details.type_ === ListingType.INDIVIDUAL_AUCTION
+}
+
+export function isFixedPriceListing(listing: ContractListing): boolean {
+  return listing.details.type_ === ListingType.FIXED_PRICE
 }
 
 export function isActiveAuction(listing: ContractListing, nowSec = Math.floor(Date.now() / 1000)): boolean {
