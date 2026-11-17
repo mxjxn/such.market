@@ -184,4 +184,16 @@ export async function fetchAuctionById(
   return { ...summary, ...media, listing }
 }
 
+/** Load any marketplace listing (auction or fixed-price) by id. */
+export async function fetchMarketplaceListingById(
+  chainId: number,
+  listingId: bigint
+): Promise<(AuctionSummary & { listing: ContractListing }) | null> {
+  const listing = await fetchListing(chainId, listingId)
+  if (!listing) return null
+  const summary = listingToSummary(chainId, listing)
+  const media = await enrichMedia(listing.token.address_, listing.token.id, chainId)
+  return { ...summary, ...media, listing }
+}
+
 export { ListingType, type ContractListing }

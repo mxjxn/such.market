@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { fetchAuctionById } from '@/lib/auctions-server'
+import { fetchMarketplaceListingById } from '@/lib/auctions-server'
 import { AuctionBidPanel } from '@/components/auctions/AuctionBidPanel'
+import { FixedPriceListingPanel } from '@/components/auctions/FixedPriceListingPanel'
 import { getChainName, isSupportedChainId } from '@/lib/chains'
 import { isAuctionHouseEnabled } from '@/lib/chain-config'
+import { isAuctionListing, isFixedPriceListing } from '@/lib/marketplace'
 
 export default async function AuctionDetailPage({
   params,
@@ -19,8 +21,11 @@ export default async function AuctionDetailPage({
     notFound()
   }
 
-  const auction = await fetchAuctionById(chainId, listingId)
+  const auction = await fetchMarketplaceListingById(chainId, listingId)
   if (!auction) notFound()
+  const isAuction = isAuctionListing(auction.listing)
+  const isFixed = isFixedPriceListing(auction.listing)
+  if (!isAuction && !isFixed) notFound()
 
   return (
     <div className="sm-band-sky min-h-full">
@@ -46,13 +51,18 @@ export default async function AuctionDetailPage({
           <div>
             <p className="sm-play text-sm text-sky-deep">{getChainName(chainId)}</p>
             <h1 className="sm-heading text-3xl mt-1">
-              {auction.title || `Auction #${auction.listingId}`}
+              {auction.title ||
+                (isFixed ? `Listing #${auction.listingId}` : `Auction #${auction.listingId}`)}
             </h1>
             <p className="mt-2 text-sm text-mute font-mono break-all">
               {auction.tokenAddress} · token {auction.tokenId}
             </p>
             <div className="mt-6">
-              <AuctionBidPanel chainId={chainId} listingId={listingId} listing={auction.listing} />
+              {isAuction ? (
+                <AuctionBidPanel chainId={chainId} listingId={listingId} listing={auction.listing} />
+              ) : (
+                <FixedPriceListingPanel listing={auction.listing} />
+              )}
             </div>
           </div>
         </div>
